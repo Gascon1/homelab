@@ -1,0 +1,4 @@
+appdata/
+.env
+*.log
+*~
