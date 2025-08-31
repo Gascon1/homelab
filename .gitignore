@@ -1,4 +1,10 @@
-appdata/
+# Ignore everything inside appdata
+appdata/*
+
+# But keep the directory structure via .gitkeep
+!appdata/*/.gitkeep
+!appdata/*/*/.gitkeep
+
 .env
 *.log
 *~
