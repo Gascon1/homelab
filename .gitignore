@@ -1,5 +1,5 @@
 # Ignore everything inside appdata
-appdata/*
+appdata/**
 
 # But keep the directory structure via .gitkeep
 !appdata/*/.gitkeep
