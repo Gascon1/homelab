@@ -1,20 +1,34 @@
-version: "3.8"
+# ---------- DRY helpers ----------
+x-ls-common: &ls-common
+  restart: unless-stopped
+  environment:
+    - PUID=${PUID}
+    - PGID=${PGID}
+    - TZ=${TZ}
+    # Optional: make downloaded/created files group-writable
+    - UMASK=002
+  networks:
+    - homelab
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
 
+# ---------- Services ----------
 services:
   overseerr:
+    <<: *ls-common
     image: lscr.io/linuxserver/overseerr:latest
     container_name: overseerr
-    environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - TZ=${TZ}
     volumes:
-      - ./appdata/overseerr:/config
+      - ${APPDATA}/overseerr:/config
     ports:
       - "5055:5055"
-    restart: unless-stopped
 
   flaresolverr:
+    # not linuxserver; keep light, still join homelab + logging limits
+    restart: unless-stopped
     image: ghcr.io/flaresolverr/flaresolverr:latest
     container_name: flaresolverr
     environment:
@@ -22,23 +36,38 @@ services:
       - LOG_HTML=false
       - CAPTCHA_SOLVER=none
       - TZ=${TZ}
+    networks:
+      - homelab
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - "8191:8191"
-    restart: unless-stopped
 
   homarr:
+    # reads docker.sock to auto-discover services
+    restart: unless-stopped
     image: ghcr.io/ajnart/homarr:latest
     container_name: homarr
-    restart: unless-stopped
+    networks:
+      - homelab
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./appdata/homarr/configs:/app/data/configs
-      - ./appdata/homarr/icons:/app/public/icons
-      - ./appdata/homarr/data:/data
+      - ${APPDATA}/homarr/configs:/app/data/configs
+      - ${APPDATA}/homarr/icons:/app/public/icons
+      - ${APPDATA}/homarr/data:/data
     ports:
       - "7575:7575"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   plex:
+    # Keep host mode for DLNA/auto-discovery/perf (unchanged)
     image: lscr.io/linuxserver/plex:latest
     container_name: plex
     network_mode: host
@@ -47,69 +76,196 @@ services:
       - PGID=${PGID}
       - TZ=${TZ}
       - VERSION=docker
-      # use once, remove after claim
-      - PLEX_CLAIM=claim-REPLACE_ME
+      # ⚠️ Use once, then remove this line after claiming:
+      # - PLEX_CLAIM=claim-REPLACE_ME
     volumes:
-      - ./appdata/plex:/config
-      - /srv/data/media:/data
+      - ${APPDATA}/plex:/config
+      - ${DATA_DIR}/media:/data
     restart: unless-stopped
+    # (Optional hardware accel on Intel/AMD iGPU)
+    # devices:
+    #   - /dev/dri:/dev/dri
 
   qbittorrent:
+    <<: *ls-common
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
     environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - TZ=${TZ}
       - WEBUI_PORT=8080
       - TORRENTING_PORT=6881
     volumes:
-      - ./appdata/qbittorrent:/config
-      - /srv/data/torrents:/data/torrents
+      - ${APPDATA}/qbittorrent:/config
+      - ${DATA_DIR}/torrents:/data/torrents
     ports:
-      - "8080:8080"
-      - "6881:6881"
-      - "6881:6881/udp"
-    restart: unless-stopped
+      - "8080:8080"            # Web UI
+      - "6881:6881"            # TCP torrenting
+      - "6881:6881/udp"        # UDP torrenting
+    stop_grace_period: 30s     # Let qB save state cleanly
 
   radarr:
+    <<: *ls-common
     image: lscr.io/linuxserver/radarr:latest
     container_name: radarr
-    environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - TZ=${TZ}
     volumes:
-      - ./appdata/radarr:/config
-      - /srv/data:/data
+      - ${APPDATA}/radarr:/config
+      - ${DATA_DIR}:/data
     ports:
       - "7878:7878"
-    restart: unless-stopped
 
   sonarr:
+    <<: *ls-common
     image: lscr.io/linuxserver/sonarr:latest
     container_name: sonarr
-    environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - TZ=${TZ}
     volumes:
-      - ./appdata/sonarr:/config
-      - /srv/data:/data
+      - ${APPDATA}/sonarr:/config
+      - ${DATA_DIR}:/data
     ports:
       - "8989:8989"
-    restart: unless-stopped
 
   prowlarr:
+    <<: *ls-common
     image: lscr.io/linuxserver/prowlarr:latest
     container_name: prowlarr
-    environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - TZ=${TZ}
     volumes:
-      - ./appdata/prowlarr:/config
+      - ${APPDATA}/prowlarr:/config
     ports:
       - "9696:9696"
+
+  # ---------- Immich (self-hosted Google Photos) ----------
+  # All Immich services are behind the "photos" profile so you can run:
+  #   docker compose --profile photos up -d
+  immich-postgres:
+    profiles: ["photos"]
+    image: postgres:16
+    container_name: immich-postgres
     restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${IMMICH_DB_USER}
+      POSTGRES_PASSWORD: ${IMMICH_DB_PASS}
+      POSTGRES_DB: ${IMMICH_DB_NAME}
+    volumes:
+      - ${APPDATA}/immich/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${IMMICH_DB_USER} -d ${IMMICH_DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - homelab
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  immich-redis:
+    profiles: ["photos"]
+    image: redis:7-alpine
+    container_name: immich-redis
+    restart: unless-stopped
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    volumes:
+      - ${APPDATA}/immich/redis:/data
+    networks:
+      - homelab
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  immich-server:
+    profiles: ["photos"]
+    image: ghcr.io/immich-app/immich-server:release
+    container_name: immich-server
+    depends_on:
+      immich-postgres:
+        condition: service_healthy
+      immich-redis:
+        condition: service_started
+    environment:
+      DB_URL: postgres://${IMMICH_DB_USER}:${IMMICH_DB_PASS}@immich-postgres:5432/${IMMICH_DB_NAME}
+      REDIS_HOST: immich-redis
+      REDIS_PORT: 6379
+    volumes:
+      - ${PHOTOS_DIR}:/usr/src/app/upload
+    networks:
+      - homelab
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  immich-microservices:
+    profiles: ["photos"]
+    image: ghcr.io/immich-app/immich-microservices:release
+    container_name: immich-microservices
+    depends_on:
+      - immich-server
+    environment:
+      DB_URL: postgres://${IMMICH_DB_USER}:${IMMICH_DB_PASS}@immich-postgres:5432/${IMMICH_DB_NAME}
+      REDIS_HOST: immich-redis
+      REDIS_PORT: 6379
+    volumes:
+      - ${PHOTOS_DIR}:/usr/src/app/upload
+    networks:
+      - homelab
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  immich-machine-learning:
+    profiles: ["photos"]
+    image: ghcr.io/immich-app/immich-machine-learning:release
+    container_name: immich-machine-learning
+    depends_on:
+      - immich-server
+    environment:
+      DB_URL: postgres://${IMMICH_DB_USER}:${IMMICH_DB_PASS}@immich-postgres:5432/${IMMICH_DB_NAME}
+      REDIS_HOST: immich-redis
+      REDIS_PORT: 6379
+    volumes:
+      - ${PHOTOS_DIR}:/usr/src/app/upload
+    networks:
+      - homelab
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  immich-web:
+    profiles: ["photos"]
+    image: ghcr.io/immich-app/immich-web:release
+    container_name: immich-web
+    depends_on:
+      - immich-server
+    environment:
+      # If you put a reverse proxy in front later, change this to the proxy URL
+      IMMICH_SERVER_URL: http://immich-server:2283
+    networks:
+      - homelab
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  immich-proxy:
+    profiles: ["photos"]
+    image: ghcr.io/immich-app/immich-proxy:release
+    container_name: immich-proxy
+    depends_on:
+      - immich-web
+    environment:
+      IMMICH_WEB_URL: http://immich-web:8080
+      IMMICH_SERVER_URL: http://immich-server:2283
+    ports:
+      - "8088:8080"  # Access Immich at http://<server-ip>:8088 (avoids qB 8080 clash)
+    networks:
+      - homelab
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+# ---------- Networks ----------
+networks:
+  homelab:
+    name: homelab
 
