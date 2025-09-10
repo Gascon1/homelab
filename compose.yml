@@ -49,24 +49,21 @@ services:
       - '8191:8191'
 
   homarr:
-    # reads docker.sock to auto-discover services
-    restart: unless-stopped
-    image: ghcr.io/ajnart/homarr:latest
+    image: ghcr.io/homarr-labs/homarr:latest
     container_name: homarr
-    networks:
-      - homelab
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - SECRET_ENCRYPTION_KEY=013149d6571dd7fc5041f640a1a38c7afa8a5cd820ba07d1d6f4fe9404e8f543
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock:ro
       - ${APPDATA}/homarr/configs:/app/data/configs
       - ${APPDATA}/homarr/icons:/app/public/icons
-      - ${APPDATA}/homarr/data:/data
+      - ${APPDATA}/homarr/data:/appdata
     ports:
       - '7575:7575'
-    logging:
-      driver: json-file
-      options:
-        max-size: '10m'
-        max-file: '3'
+    restart: unless-stopped
 
   plex:
     # Keep host mode for DLNA/auto-discovery/perf (unchanged)
