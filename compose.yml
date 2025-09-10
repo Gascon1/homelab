@@ -14,8 +14,8 @@ x-ls-common: &ls-common
   logging:
     driver: json-file
     options:
-      max-size: "10m"
-      max-file: "3"
+      max-size: '10m'
+      max-file: '3'
 
 # ---------- Services ----------
 services:
@@ -26,7 +26,7 @@ services:
     volumes:
       - ${APPDATA}/overseerr:/config
     ports:
-      - "5055:5055"
+      - '5055:5055'
 
   flaresolverr:
     # not linuxserver; keep light, still join homelab + logging limits
@@ -43,10 +43,10 @@ services:
     logging:
       driver: json-file
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: '10m'
+        max-file: '3'
     ports:
-      - "8191:8191"
+      - '8191:8191'
 
   homarr:
     # reads docker.sock to auto-discover services
@@ -61,12 +61,12 @@ services:
       - ${APPDATA}/homarr/icons:/app/public/icons
       - ${APPDATA}/homarr/data:/data
     ports:
-      - "7575:7575"
+      - '7575:7575'
     logging:
       driver: json-file
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: '10m'
+        max-file: '3'
 
   plex:
     # Keep host mode for DLNA/auto-discovery/perf (unchanged)
@@ -99,10 +99,10 @@ services:
       - ${APPDATA}/qbittorrent:/config
       - ${DATA_DIR}/torrents:/data/torrents
     ports:
-      - "8080:8080"            # Web UI
-      - "6881:6881"            # TCP torrenting
-      - "6881:6881/udp"        # UDP torrenting
-    stop_grace_period: 30s     # Let qB save state cleanly
+      - '8080:8080' # Web UI
+      - '6881:6881' # TCP torrenting
+      - '6881:6881/udp' # UDP torrenting
+    stop_grace_period: 30s # Let qB save state cleanly
 
   radarr:
     <<: *ls-common
@@ -112,7 +112,7 @@ services:
       - ${APPDATA}/radarr:/config
       - ${DATA_DIR}:/data
     ports:
-      - "7878:7878"
+      - '7878:7878'
 
   sonarr:
     <<: *ls-common
@@ -122,7 +122,7 @@ services:
       - ${APPDATA}/sonarr:/config
       - ${DATA_DIR}:/data
     ports:
-      - "8989:8989"
+      - '8989:8989'
 
   prowlarr:
     <<: *ls-common
@@ -131,7 +131,7 @@ services:
     volumes:
       - ${APPDATA}/prowlarr:/config
     ports:
-      - "9696:9696"
+      - '9696:9696'
 
   immich-server:
     container_name: immich_server
@@ -144,7 +144,7 @@ services:
       - redis
       - database
     ports:
-      - "2283:2283"   # or "8088:2283" if you prefer that external port
+      - '2283:2283' # or "8088:2283" if you prefer that external port
     restart: always
     networks: [homelab]
 
@@ -161,7 +161,7 @@ services:
     container_name: immich_redis
     image: docker.io/valkey/valkey:8-bookworm@sha256:a137a2b60aca1a75130022d6bb96af423fefae4eb55faf395732db3544803280
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli ping || exit 1"]
+      test: ['CMD-SHELL', 'redis-cli ping || exit 1']
     restart: always
     networks: [homelab]
 
@@ -172,7 +172,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_USER: ${DB_USERNAME}
       POSTGRES_DB: ${DB_DATABASE_NAME}
-      POSTGRES_INITDB_ARGS: "--data-checksums"
+      POSTGRES_INITDB_ARGS: '--data-checksums'
       # DB_STORAGE_TYPE: "HDD"   # uncomment if your DB is on HDD
     volumes:
       - ${DB_DATA_LOCATION}:/var/lib/postgresql/data
@@ -183,33 +183,31 @@ services:
   netdata:
     image: netdata/netdata:stable
     container_name: netdata
-    hostname: ${HOSTNAME:-homelab}
-    ports:
-      - "19999:19999"              # change if 19999 is taken
+    pid: host
+    network_mode: host # drop your `ports:` when using host network
     restart: unless-stopped
     cap_add:
       - SYS_PTRACE
+      - SYS_ADMIN
     security_opt:
-      - apparmor:unconfined        # OK on Ubuntu; omit on distros without AppArmor
+      - apparmor:unconfined
     volumes:
-      # host/system introspection (read-only)
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /etc/passwd:/host/etc/passwd:ro
-      - /etc/group:/host/etc/group:ro
-      - /etc/os-release:/host/etc/os-release:ro
-      # docker metrics
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      # persist Netdata config/history in your homelab appdata
       - ./appdata/netdata/config:/etc/netdata
       - ./appdata/netdata/lib:/var/lib/netdata
       - ./appdata/netdata/cache:/var/cache/netdata
+      - /:/host/root:ro,rslave # <-- lets Netdata see ALL host mount points (incl. /srv/data)
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /etc/os-release:/host/etc/os-release:ro
+      - /etc/passwd:/host/etc/passwd:ro
+      - /etc/group:/host/etc/group:ro
+      - /var/log:/host/var/log:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
 
 volumes:
-  model-cache:        
-        
+  model-cache:
+
 # ---------- Networks ----------
 networks:
   homelab:
     name: homelab
-
