@@ -133,6 +133,10 @@ services:
       - '8080:8080' # Web UI
       - '6881:6881' # TCP torrenting
       - '6881:6881/udp' # UDP torrenting
+    labels:
+      - dashy=include # optional if you keep EXPOSED_BY_DEFAULT=true
+      - dashy.port=8080 # <-- force the Web UI port for Dashy
+      - dashy.name=qBittorrent
     stop_grace_period: 30s # Let qB save state cleanly
 
   radarr:
