@@ -1,3 +1,5 @@
+name: homelab
+
 # ---------- DRY helpers ----------
 x-ls-common: &ls-common
   restart: unless-stopped
@@ -131,139 +133,81 @@ services:
     ports:
       - "9696:9696"
 
-  # ---------- Immich (self-hosted Google Photos) ----------
-  # All Immich services are behind the "photos" profile so you can run:
-  #   docker compose --profile photos up -d
-  immich-postgres:
-    profiles: ["photos"]
-    image: postgres:16
-    container_name: immich-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${IMMICH_DB_USER}
-      POSTGRES_PASSWORD: ${IMMICH_DB_PASS}
-      POSTGRES_DB: ${IMMICH_DB_NAME}
-    volumes:
-      - ${APPDATA}/immich/postgres:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${IMMICH_DB_USER} -d ${IMMICH_DB_NAME}"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-    networks:
-      - homelab
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "3" }
-
-  immich-redis:
-    profiles: ["photos"]
-    image: redis:7-alpine
-    container_name: immich-redis
-    restart: unless-stopped
-    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
-    volumes:
-      - ${APPDATA}/immich/redis:/data
-    networks:
-      - homelab
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "3" }
-
   immich-server:
-    profiles: ["photos"]
-    image: ghcr.io/immich-app/immich-server:release
-    container_name: immich-server
-    depends_on:
-      immich-postgres:
-        condition: service_healthy
-      immich-redis:
-        condition: service_started
-    environment:
-      DB_URL: postgres://${IMMICH_DB_USER}:${IMMICH_DB_PASS}@immich-postgres:5432/${IMMICH_DB_NAME}
-      REDIS_HOST: immich-redis
-      REDIS_PORT: 6379
+    container_name: immich_server
+    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
+    env_file: .env
     volumes:
-      - ${PHOTOS_DIR}:/usr/src/app/upload
-    networks:
-      - homelab
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "3" }
-
-  immich-microservices:
-    profiles: ["photos"]
-    image: ghcr.io/immich-app/immich-microservices:release
-    container_name: immich-microservices
+      - ${UPLOAD_LOCATION}:/data
+      - /etc/localtime:/etc/localtime:ro
     depends_on:
-      - immich-server
-    environment:
-      DB_URL: postgres://${IMMICH_DB_USER}:${IMMICH_DB_PASS}@immich-postgres:5432/${IMMICH_DB_NAME}
-      REDIS_HOST: immich-redis
-      REDIS_PORT: 6379
-    volumes:
-      - ${PHOTOS_DIR}:/usr/src/app/upload
-    networks:
-      - homelab
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "3" }
+      - redis
+      - database
+    ports:
+      - "2283:2283"   # or "8088:2283" if you prefer that external port
+    restart: always
+    networks: [homelab]
 
   immich-machine-learning:
-    profiles: ["photos"]
-    image: ghcr.io/immich-app/immich-machine-learning:release
-    container_name: immich-machine-learning
-    depends_on:
-      - immich-server
-    environment:
-      DB_URL: postgres://${IMMICH_DB_USER}:${IMMICH_DB_PASS}@immich-postgres:5432/${IMMICH_DB_NAME}
-      REDIS_HOST: immich-redis
-      REDIS_PORT: 6379
+    container_name: immich_machine_learning
+    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}
+    env_file: .env
     volumes:
-      - ${PHOTOS_DIR}:/usr/src/app/upload
-    networks:
-      - homelab
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "3" }
+      - model-cache:/cache
+    restart: always
+    networks: [homelab]
 
-  immich-web:
-    profiles: ["photos"]
-    image: ghcr.io/immich-app/immich-web:release
-    container_name: immich-web
-    depends_on:
-      - immich-server
-    environment:
-      # If you put a reverse proxy in front later, change this to the proxy URL
-      IMMICH_SERVER_URL: http://immich-server:2283
-    networks:
-      - homelab
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "3" }
+  redis:
+    container_name: immich_redis
+    image: docker.io/valkey/valkey:8-bookworm@sha256:a137a2b60aca1a75130022d6bb96af423fefae4eb55faf395732db3544803280
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping || exit 1"]
+    restart: always
+    networks: [homelab]
 
-  immich-proxy:
-    profiles: ["photos"]
-    image: ghcr.io/immich-app/immich-proxy:release
-    container_name: immich-proxy
-    depends_on:
-      - immich-web
+  database:
+    container_name: immich_postgres
+    image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:32324a2f41df5de9efe1af166b7008c3f55646f8d0e00d9550c16c9822366b4a
     environment:
-      IMMICH_WEB_URL: http://immich-web:8080
-      IMMICH_SERVER_URL: http://immich-server:2283
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_DB: ${DB_DATABASE_NAME}
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+      # DB_STORAGE_TYPE: "HDD"   # uncomment if your DB is on HDD
+    volumes:
+      - ${DB_DATA_LOCATION}:/var/lib/postgresql/data
+    shm_size: 128mb
+    restart: always
+    networks: [homelab]
+
+  netdata:
+    image: netdata/netdata:stable
+    container_name: netdata
+    hostname: ${HOSTNAME:-homelab}
     ports:
-      - "8088:8080"  # Access Immich at http://<server-ip>:8088 (avoids qB 8080 clash)
-    networks:
-      - homelab
+      - "19999:19999"              # change if 19999 is taken
     restart: unless-stopped
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "3" }
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - apparmor:unconfined        # OK on Ubuntu; omit on distros without AppArmor
+    volumes:
+      # host/system introspection (read-only)
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /etc/passwd:/host/etc/passwd:ro
+      - /etc/group:/host/etc/group:ro
+      - /etc/os-release:/host/etc/os-release:ro
+      # docker metrics
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # persist Netdata config/history in your homelab appdata
+      - ./appdata/netdata/config:/etc/netdata
+      - ./appdata/netdata/lib:/var/lib/netdata
+      - ./appdata/netdata/cache:/var/cache/netdata
 
+volumes:
+  model-cache:        
+        
 # ---------- Networks ----------
 networks:
   homelab:
