@@ -48,28 +48,62 @@ services:
     ports:
       - '8191:8191'
 
-  homarr:
-    image: ghcr.io/homarr-labs/homarr:latest
-    container_name: homarr
+  dashy:
+    image: lissy93/dashy:latest
+    container_name: dashy
     environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
+      - NODE_ENV=production
       - TZ=${TZ}
-      - SECRET_ENCRYPTION_KEY=013149d6571dd7fc5041f640a1a38c7afa8a5cd820ba07d1d6f4fe9404e8f543
+    networks: [homelab]
+    ports:
+      - '4000:8080' # Open at http://<server>:4000
+    volumes:
+      - ${APPDATA}/dashy/conf.yml:/app/user-data/conf.yml
+      - ${APPDATA}/dashy/assets:/app/public
+    healthcheck:
+      test: ['CMD', 'node', '/app/services/healthcheck']
+      interval: 90s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+  dashy-docker-sync:
+    image: ghcr.io/jeppestaerk/dashy-docker-sync:latest
+    container_name: dashy-docker-sync
+    depends_on: [dashy]
+    environment:
+      - DASHY_CONFIG_PATH=/config/conf.yml
+      - DASHY_DOCKER_SECTION_NAME=Docker Apps
+      - DASHY_EXPOSED_BY_DEFAULT=true # auto-add containers with published ports
+      - DASHY_DOCKER_URL_HOST=${HOST_ADDR} # base URL used for links
+      - TZ=${TZ}
+    networks: [homelab]
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ${APPDATA}/homarr/configs:/app/data/configs
-      - ${APPDATA}/homarr/icons:/app/public/icons
-      - ${APPDATA}/homarr/data:/appdata
-    ports:
-      - '7575:7575'
+      - ${APPDATA}/dashy/conf.yml:/config/conf.yml
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
 
   plex:
     # Keep host mode for DLNA/auto-discovery/perf (unchanged)
     image: lscr.io/linuxserver/plex:latest
     container_name: plex
     network_mode: host
+    labels:
+      - dashy=include
+      - dashy.name=Plex
+      - dashy.icon=png/plex.png
+      - dashy.url=${HOST_ADDR}:32400/web
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
@@ -200,6 +234,11 @@ services:
       - /etc/group:/host/etc/group:ro
       - /var/log:/host/var/log:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      - dashy=include
+      - dashy.name=Netdata
+      - dashy.icon=png/netdata.png
+      - dashy.url=${HOST_ADDR}:19999
 
 volumes:
   model-cache:
