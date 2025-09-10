@@ -241,6 +241,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     labels:
       - dashy=include
+      - dashy.port=19999
       - dashy.name=Netdata
       - dashy.icon=png/netdata.png
       - dashy.url=${HOST_ADDR}:19999
