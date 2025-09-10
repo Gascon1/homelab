@@ -99,11 +99,6 @@ services:
     image: lscr.io/linuxserver/plex:latest
     container_name: plex
     network_mode: host
-    labels:
-      - dashy=include
-      - dashy.name=Plex
-      - dashy.icon=png/plex.png
-      - dashy.url=${HOST_ADDR}:32400/web
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
@@ -114,6 +109,12 @@ services:
     volumes:
       - ${APPDATA}/plex:/config
       - ${DATA_DIR}/media:/data
+    labels:
+      - dashy=include
+      - dashy.port=32400
+      - dashy.name=Plex
+      - dashy.icon=png/plex.png
+      - dashy.url=${HOST_ADDR}:32400/web
     restart: unless-stopped
     # (Optional hardware accel on Intel/AMD iGPU)
     # devices:
