@@ -100,7 +100,7 @@ services:
     networks: [homelab]
     # Publish only what you need to reach from LAN
     ports:
-      - "32400:32400/tcp"   # Plex web/API
+      - '32400:32400/tcp' # Plex web/API
       # If you actually use DLNA/auto-discovery, also add these:
       # - "1900:1900/udp"     # SSDP discovery
       # - "32410:32410/udp"   # GDM discovery
@@ -127,7 +127,6 @@ services:
       - dashy.url=${HOST_ADDR}:32400/web
     restart: unless-stopped
 
-
   qbittorrent:
     <<: *ls-common
     image: lscr.io/linuxserver/qbittorrent:latest
@@ -138,9 +137,9 @@ services:
       - ${APPDATA}/qbittorrent:/config
       - ${DATA_DIR}/torrents:/data/torrents
     ports:
-      - "8080:8080"
-      - "6881:6881"
-      - "6881:6881/udp"
+      - '8080:8080'
+      - '6881:6881'
+      - '6881:6881/udp'
     labels:
       - dashy=include # optional if you keep EXPOSED_BY_DEFAULT=true
       - dashy.port=8080 # <-- force the Web UI port for Dashy
@@ -199,6 +198,8 @@ services:
       - model-cache:/cache
     restart: always
     networks: [homelab]
+    labels:
+      - dashy.ignore=true
 
   redis:
     container_name: immich_redis
@@ -207,6 +208,8 @@ services:
       test: ['CMD-SHELL', 'redis-cli ping || exit 1']
     restart: always
     networks: [homelab]
+    labels:
+      - dashy.ignore=true
 
   database:
     container_name: immich_postgres
@@ -222,6 +225,8 @@ services:
     shm_size: 128mb
     restart: always
     networks: [homelab]
+    labels:
+      - dashy.ignore=true
 
   netdata:
     image: netdata/netdata:stable
@@ -230,7 +235,7 @@ services:
     pid: host
     networks: [homelab]
     ports:
-      - "19999:19999/tcp"
+      - '19999:19999/tcp'
     restart: unless-stopped
     cap_add:
       - SYS_PTRACE
