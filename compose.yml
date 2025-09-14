@@ -27,6 +27,8 @@ services:
       - ${APPDATA}/overseerr:/config
     ports:
       - '5055:5055'
+    labels:
+      - dashy=include
 
   flaresolverr:
     # not linuxserver; keep light, still join homelab + logging limits
@@ -84,7 +86,7 @@ services:
     environment:
       - DASHY_CONFIG_PATH=/config/conf.yml
       - DASHY_DOCKER_SECTION_NAME=Docker Apps
-      - DASHY_EXPOSED_BY_DEFAULT=true # auto-add containers with published ports
+      - DASHY_EXPOSED_BY_DEFAULT=false # only include containers with explicit labels
       - DASHY_DOCKER_URL_HOST=${HOST_ADDR} # base URL used for links
       - TZ=${TZ}
     networks: [homelab]
@@ -161,6 +163,8 @@ services:
       - ${DATA_DIR}:/data
     ports:
       - '7878:7878'
+    labels:
+      - dashy=include
 
   sonarr:
     <<: *ls-common
@@ -171,6 +175,8 @@ services:
       - ${DATA_DIR}:/data
     ports:
       - '8989:8989'
+    labels:
+      - dashy=include
 
   prowlarr:
     <<: *ls-common
@@ -180,6 +186,8 @@ services:
       - ${APPDATA}/prowlarr:/config
     ports:
       - '9696:9696'
+    labels:
+      - dashy=include
 
   immich-server:
     container_name: immich_server
