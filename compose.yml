@@ -95,20 +95,30 @@ services:
         max-file: '3'
 
   plex:
-    # Keep host mode for DLNA/auto-discovery/perf (unchanged)
     image: lscr.io/linuxserver/plex:latest
     container_name: plex
-    network_mode: host
+    networks: [homelab]
+    # Publish only what you need to reach from LAN
+    ports:
+      - "32400:32400/tcp"   # Plex web/API
+      # If you actually use DLNA/auto-discovery, also add these:
+      # - "1900:1900/udp"     # SSDP discovery
+      # - "32410:32410/udp"   # GDM discovery
+      # - "32412:32412/udp"
+      # - "32413:32413/udp"
+      # - "32414:32414/udp"
+      # - "32469:32469/tcp"   # DLNA
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
       - VERSION=docker
-      # ⚠️ Use once, then remove this line after claiming:
-      # - PLEX_CLAIM=claim-REPLACE_ME
+      # REMOVE if previously used:
+      # - PLEX_CLAIM=...
     volumes:
+      # Make paths match the *arr containers to avoid path-mapping pain
+      - ${DATA_DIR}:/data
       - ${APPDATA}/plex:/config
-      - ${DATA_DIR}/media:/data
     labels:
       - dashy=include
       - dashy.port=32400
@@ -116,9 +126,7 @@ services:
       - dashy.icon=png/plex.png
       - dashy.url=${HOST_ADDR}:32400/web
     restart: unless-stopped
-    # (Optional hardware accel on Intel/AMD iGPU)
-    # devices:
-    #   - /dev/dri:/dev/dri
+
 
   qbittorrent:
     <<: *ls-common
@@ -126,14 +134,13 @@ services:
     container_name: qbittorrent
     environment:
       - WEBUI_PORT=8080
-      - TORRENTING_PORT=6881
     volumes:
       - ${APPDATA}/qbittorrent:/config
       - ${DATA_DIR}/torrents:/data/torrents
     ports:
-      - '8080:8080' # Web UI
-      - '6881:6881' # TCP torrenting
-      - '6881:6881/udp' # UDP torrenting
+      - "8080:8080"
+      - "6881:6881"
+      - "6881:6881/udp"
     labels:
       - dashy=include # optional if you keep EXPOSED_BY_DEFAULT=true
       - dashy.port=8080 # <-- force the Web UI port for Dashy
@@ -219,8 +226,11 @@ services:
   netdata:
     image: netdata/netdata:stable
     container_name: netdata
+    # Keep host PID so Netdata can see host processes; just switch network
     pid: host
-    network_mode: host # drop your `ports:` when using host network
+    networks: [homelab]
+    ports:
+      - "19999:19999/tcp"
     restart: unless-stopped
     cap_add:
       - SYS_PTRACE
@@ -231,7 +241,7 @@ services:
       - ./appdata/netdata/config:/etc/netdata
       - ./appdata/netdata/lib:/var/lib/netdata
       - ./appdata/netdata/cache:/var/cache/netdata
-      - /:/host/root:ro,rslave # <-- lets Netdata see ALL host mount points (incl. /srv/data)
+      - /:/host/root:ro,rslave
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /etc/os-release:/host/etc/os-release:ro
