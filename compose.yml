@@ -47,6 +47,8 @@ services:
         max-file: '3'
     ports:
       - '8191:8191'
+    labels:
+      - dashy.ignore=true
 
   dashy:
     image: lissy93/dashy:latest
@@ -93,6 +95,8 @@ services:
       options:
         max-size: '10m'
         max-file: '3'
+    labels:
+      - dashy.ignore=true
 
   plex:
     image: lscr.io/linuxserver/plex:latest
@@ -189,6 +193,12 @@ services:
       - '2283:2283' # or "8088:2283" if you prefer that external port
     restart: always
     networks: [homelab]
+    labels:
+      - dashy=include
+      - dashy.name=Immich
+      - dashy.port=2283
+      - dashy.url=${HOST_ADDR}:2283
+      - dashy.icon=https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/immich.png
 
   immich-machine-learning:
     container_name: immich_machine_learning
