@@ -74,6 +74,8 @@ services:
       options:
         max-size: '10m'
         max-file: '3'
+    labels:
+      - dashy.ignore=true
 
   dashy-docker-sync:
     image: ghcr.io/jeppestaerk/dashy-docker-sync:latest
