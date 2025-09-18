@@ -122,7 +122,7 @@ services:
       - TZ=${TZ}
       - VERSION=docker
       # REMOVE if previously used:
-      # - PLEX_CLAIM=...
+      - PLEX_CLAIM=claim-Ti-QgP1Ezyxfa7G8Bd8H
     volumes:
       # Make paths match the *arr containers to avoid path-mapping pain
       - ${DATA_DIR}:/data
