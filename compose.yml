@@ -309,24 +309,6 @@ services:
       - dashy.icon=png/netdata.png
       - dashy.url=${HOST_ADDR}:19999
 
-  filebrowser:
-    <<: *ls-common
-    image: lscr.io/linuxserver/filebrowser:latest
-    container_name: filebrowser
-    volumes:
-      - ${APPDATA}/filebrowser:/config
-      - ${DATA_DIR}:/data
-    environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - TZ=${TZ}
-    ports:
-      - '8081:80'
-    labels:
-      - dashy=include
-      - dashy.name=File Browser
-      - dashy.port=8081
-
 volumes:
   model-cache:
 
