@@ -309,6 +309,29 @@ services:
       - dashy.icon=png/netdata.png
       - dashy.url=${HOST_ADDR}:19999
 
+  filebrowser:
+    image: filebrowser/filebrowser:latest
+    container_name: filebrowser
+    restart: unless-stopped
+    # run as same user as your other LS containers
+    user: '${PUID}:${PGID}'
+    environment:
+      - TZ=${TZ}
+    networks:
+      - homelab
+    volumes:
+      # Folder(s) you want to browse
+      - /srv/data:/srv
+
+      # Config + DB so settings survive rebuilds
+      - ${APPDATA}/filebrowser/config:/config
+      - ${APPDATA}/filebrowser/database:/database
+
+    ports:
+      - '8080:80'
+    labels:
+      - dashy=include
+
 volumes:
   model-cache:
 
