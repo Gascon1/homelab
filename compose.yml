@@ -309,6 +309,29 @@ services:
       - dashy.icon=png/netdata.png
       - dashy.url=${HOST_ADDR}:19999
 
+  filebrowser:
+    <<: *ls-common
+    image: lscr.io/linuxserver/filebrowser:latest
+    container_name: filebrowser
+    volumes:
+      # Config for filebrowser itself
+      - ${APPDATA}/filebrowser:/config
+
+      # OPTION A — only expose media/data (safer)
+      - ${DATA_DIR}:/data/media
+      - ${UPLOAD_LOCATION:-/nothing}:/data/photos
+
+      # OPTION B — expose whole host (more powerful, more risky)
+      # - /:/data
+
+    ports:
+      - '8081:80'
+    labels:
+      - dashy=include
+      - dashy.name=File Browser
+      - dashy.port=8081
+      - dashy.icon=fas fa-folder-open
+
 volumes:
   model-cache:
 
