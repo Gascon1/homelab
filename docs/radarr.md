@@ -8,6 +8,14 @@ Radarr is a movie collection manager that automates downloading, organizing, and
 - [Radarr Wiki](https://wiki.servarr.com/radarr)
 - [LinuxServer Radarr Image](https://docs.linuxserver.io/images/docker-radarr/)
 
+## TRaSH Guides
+
+- [Radarr - Quality Settings](https://trash-guides.info/Radarr/Radarr-Quality-Settings-File-Size/) - Optimal file size settings
+- [Radarr - Recommended Naming Scheme](https://trash-guides.info/Radarr/Radarr-recommended-naming-scheme/) - Best naming conventions
+- [Radarr - How to Set Up Quality Profiles](https://trash-guides.info/Radarr/radarr-setup-quality-profiles/) - Quality profile configuration
+- [Radarr - Custom Formats](https://trash-guides.info/Radarr/Radarr-import-custom-formats/) - Import and use custom formats
+- [Hardlinks and Instant Moves](https://trash-guides.info/Hardlinks/Hardlinks-and-Instant-Moves/) - Proper folder structure for performance
+
 ## Ports
 
 | Port | Protocol | Description |

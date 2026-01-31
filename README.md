@@ -4,19 +4,18 @@ A Docker Compose stack for running a complete home media server with automated d
 
 ## Services Overview
 
-| Service                              | Port  | Description                    |
-| ------------------------------------ | ----- | ------------------------------ |
-| [Plex](docs/plex.md)                 | 32400 | Media streaming server         |
-| [Radarr](docs/radarr.md)             | 7878  | Movie collection manager       |
-| [Sonarr](docs/sonarr.md)             | 8989  | TV series collection manager   |
-| [Prowlarr](docs/prowlarr.md)         | 9696  | Indexer manager for \*arr apps |
-| [qBittorrent](docs/qbittorrent.md)   | 8080  | Torrent download client        |
-| [Overseerr](docs/overseerr.md)       | 5055  | Media request portal           |
-| [Immich](docs/immich.md)             | 2283  | Photo & video management       |
-| [Dashy](docs/dashy.md)               | 4000  | Dashboard for all services     |
-| [Netdata](docs/netdata.md)           | 19999 | System monitoring              |
-| [File Browser](docs/filebrowser.md)  | 8181  | Web-based file manager         |
-| [FlareSolverr](docs/flaresolverr.md) | 8191  | Cloudflare bypass proxy        |
+| Service                             | Port  | Description                    |
+| ----------------------------------- | ----- | ------------------------------ |
+| [Plex](docs/plex.md)                | 32400 | Media streaming server         |
+| [Radarr](docs/radarr.md)            | 7878  | Movie collection manager       |
+| [Sonarr](docs/sonarr.md)            | 8989  | TV series collection manager   |
+| [Prowlarr](docs/prowlarr.md)        | 9696  | Indexer manager for \*arr apps |
+| [qBittorrent](docs/qbittorrent.md)  | 8080  | Torrent download client        |
+| [Overseerr](docs/overseerr.md)      | 5055  | Media request portal           |
+| [Immich](docs/immich.md)            | 2283  | Photo & video management       |
+| [Dashy](docs/dashy.md)              | 4000  | Dashboard for all services     |
+| [Netdata](docs/netdata.md)          | 19999 | System monitoring              |
+| [File Browser](docs/filebrowser.md) | 8181  | Web-based file manager         |
 
 ## Quick Start
 
@@ -25,48 +24,15 @@ A Docker Compose stack for running a complete home media server with automated d
 git clone https://github.com/<your-username>/homelab.git
 cd homelab
 
+# Configure environment (edit with your values)
+cp .env.example .env
+nano .env
+
 # Run setup script to create directories
 ./setup.sh
 
-# Configure environment
-cp .env.example .env
-nano .env  # Edit with your values
-
 # Start services
 docker compose up -d
-```
-
-## Repository Structure
-
-```
-homelab/
-├── compose.yml           # Docker Compose configuration
-├── setup.sh              # Directory initialization script
-├── .env.example          # Environment template
-├── .env                  # Environment variables (not in git)
-├── docs/                 # Per-service documentation
-│   ├── plex.md
-│   ├── radarr.md
-│   ├── sonarr.md
-│   ├── prowlarr.md
-│   ├── qbittorrent.md
-│   ├── overseerr.md
-│   ├── immich.md
-│   ├── dashy.md
-│   ├── netdata.md
-│   ├── filebrowser.md
-│   └── flaresolverr.md
-└── appdata/              # Container configurations (not in git)
-    ├── plex/
-    ├── radarr/
-    ├── sonarr/
-    ├── prowlarr/
-    ├── qbittorrent/
-    ├── overseerr/
-    ├── dashy/
-    ├── netdata/
-    ├── filebrowser/
-    └── immich-db/
 ```
 
 ## Environment Variables
@@ -79,17 +45,17 @@ PUID=1000
 PGID=1000
 
 # Timezone
-TZ=America/Montreal
+TZ=America/Toronto
 
 # Paths
 APPDATA=./appdata
 DATA_DIR=/srv/data
-HOST_ADDR=http://10.0.0.100
+HOST_ADDR=10.0.0.100
 
 # Immich
 IMMICH_VERSION=release
-UPLOAD_LOCATION=/srv/photos
-DB_DATA_LOCATION=./appdata/immich-db
+UPLOAD_LOCATION=/srv/data/media/photos
+DB_DATA_LOCATION=./appdata/immich/postgres
 DB_PASSWORD=your-secure-password
 DB_USERNAME=postgres
 DB_DATABASE_NAME=immich
@@ -153,6 +119,8 @@ After starting the stack, each service needs initial configuration:
 6. **Immich**: Create admin account, configure backup
 
 See individual [service documentation](docs/) for detailed setup instructions.
+
+For advanced configuration, check [TRaSH Guides](https://trash-guides.info/) - comprehensive guides for Radarr, Sonarr, Prowlarr, qBittorrent, and Plex with optimal settings tested by thousands of users.
 
 ## Common Commands
 

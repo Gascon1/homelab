@@ -30,28 +30,6 @@ services:
     labels:
       - dashy=include
 
-  flaresolverr:
-    # not linuxserver; keep light, still join homelab + logging limits
-    restart: unless-stopped
-    image: ghcr.io/flaresolverr/flaresolverr:latest
-    container_name: flaresolverr
-    environment:
-      - LOG_LEVEL=info
-      - LOG_HTML=false
-      - CAPTCHA_SOLVER=none
-      - TZ=${TZ}
-    networks:
-      - homelab
-    logging:
-      driver: json-file
-      options:
-        max-size: '10m'
-        max-file: '3'
-    ports:
-      - '8191:8191'
-    labels:
-      - dashy.ignore=true
-
   dashy:
     image: lissy93/dashy:latest
     container_name: dashy

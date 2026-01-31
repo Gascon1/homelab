@@ -8,6 +8,12 @@ Plex is a media server that organizes and streams your personal media collection
 - [Plex Support](https://support.plex.tv/)
 - [LinuxServer Plex Image](https://docs.linuxserver.io/images/docker-plex/)
 
+## TRaSH Guides
+
+- [Plex - Suggested Media Server Settings](https://trash-guides.info/Plex/Tips/Plex-media-server/) - Optimal server configuration
+- [Plex - Optimal Client Settings](https://trash-guides.info/Plex/Tips/Plex-Clients/) - Best client settings
+- [Plex - Stop 4K Transcoding](https://trash-guides.info/Plex/Tips/Plex-4k-transcoding/) - Prevent unnecessary transcoding
+
 ## Ports
 
 | Port        | Protocol | Description    |

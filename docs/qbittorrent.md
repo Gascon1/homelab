@@ -8,6 +8,14 @@ qBittorrent is a free, open-source BitTorrent client with a web interface for re
 - [qBittorrent Wiki](https://github.com/qbittorrent/qBittorrent/wiki)
 - [LinuxServer qBittorrent Image](https://docs.linuxserver.io/images/docker-qbittorrent/)
 
+## TRaSH Guides
+
+- [qBittorrent - Basic Setup](https://trash-guides.info/Downloaders/qBittorrent/Basic-Setup/) - Initial configuration
+- [qBittorrent - Paths](https://trash-guides.info/Downloaders/qBittorrent/Paths/) - Proper path configuration
+- [qBittorrent - How to Add Categories](https://trash-guides.info/Downloaders/qBittorrent/How-to-add-categories/) - Category setup for Radarr/Sonarr
+- [qBittorrent - Port Forwarding](https://trash-guides.info/Downloaders/qBittorrent/Port-forwarding/) - Improve connectivity
+- [Hardlinks and Instant Moves](https://trash-guides.info/Hardlinks/Hardlinks-and-Instant-Moves/) - Proper folder structure
+
 ## Ports
 
 | Port | Protocol | Description        |
@@ -72,6 +80,27 @@ Create categories for Radarr and Sonarr:
 ${APPDATA}/qbittorrent/   # Config
 ${DATA_DIR}/torrents/     # Download directory
 ```
+
+## VPN Recommendation
+
+Using a VPN with qBittorrent is strongly recommended for privacy. Many VPN providers offer SOCKS5 proxy support that can be configured directly in qBittorrent without affecting other services.
+
+**Example: NordVPN**
+
+NordVPN provides SOCKS5 proxy servers that can be configured in qBittorrent:
+
+- [NordVPN proxy setup for qBittorrent](https://support.nordvpn.com/hc/en-us/articles/20195967385745-NordVPN-proxy-setup-for-qBittorrent)
+
+Quick setup:
+
+1. Go to Tools → Options → Connection
+2. Set Type: `SOCKS5`
+3. Host: `nl.socks.nordhold.net` (or other NordVPN proxy server)
+4. Port: `1080`
+5. Enable "Use proxy for peer connections"
+6. Enter your NordVPN service credentials (from your Nord Account dashboard)
+
+Verify your setup at [ipleak.net](https://ipleak.net/) using the Torrent Address detection feature.
 
 ## Troubleshooting
 

@@ -41,16 +41,16 @@ Required in `.env`:
 # Immich version (or use 'release' for latest)
 IMMICH_VERSION=release
 
-# Upload location for photos/videos
-UPLOAD_LOCATION=/path/to/photos
+# Upload location for photos/videos (under your media tree)
+UPLOAD_LOCATION=/srv/data/media/photos
 
-# Database credentials
+# Database credentials (alphanumeric password only)
 DB_PASSWORD=your-secure-password
 DB_USERNAME=postgres
 DB_DATABASE_NAME=immich
 
-# Database storage location
-DB_DATA_LOCATION=/path/to/db
+# Database storage location (keep on local disk, not network share)
+DB_DATA_LOCATION=./appdata/immich/postgres
 ```
 
 ## Configuration
@@ -94,9 +94,9 @@ Immich is standalone but can integrate with:
 ## Data Directories
 
 ```
-${UPLOAD_LOCATION}/           # Photo and video storage
-${DB_DATA_LOCATION}/          # PostgreSQL database
-model-cache (Docker volume)   # ML models
+${DATA_DIR}/media/photos/         # Photo and video storage
+${APPDATA}/immich/postgres/       # PostgreSQL database
+model-cache (Docker volume)       # ML models
 ```
 
 ## Backup

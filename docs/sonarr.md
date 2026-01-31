@@ -8,6 +8,14 @@ Sonarr is a TV series collection manager that automates downloading, organizing,
 - [Sonarr Wiki](https://wiki.servarr.com/sonarr)
 - [LinuxServer Sonarr Image](https://docs.linuxserver.io/images/docker-sonarr/)
 
+## TRaSH Guides
+
+- [Sonarr - Quality Settings](https://trash-guides.info/Sonarr/Sonarr-Quality-Settings-File-Size/) - Optimal file size settings
+- [Sonarr - Recommended Naming Scheme](https://trash-guides.info/Sonarr/Sonarr-recommended-naming-scheme/) - Best naming conventions
+- [Sonarr - How to Set Up Quality Profiles](https://trash-guides.info/Sonarr/sonarr-setup-quality-profiles/) - Quality profile configuration
+- [Sonarr - Custom Formats](https://trash-guides.info/Sonarr/sonarr-import-custom-formats/) - Import and use custom formats
+- [Hardlinks and Instant Moves](https://trash-guides.info/Hardlinks/Hardlinks-and-Instant-Moves/) - Proper folder structure for performance
+
 ## Ports
 
 | Port | Protocol | Description |

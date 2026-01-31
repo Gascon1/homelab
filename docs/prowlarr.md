@@ -7,6 +7,11 @@ Prowlarr is an indexer manager/proxy that integrates with Radarr, Sonarr, and ot
 - [Prowlarr Wiki](https://wiki.servarr.com/prowlarr)
 - [LinuxServer Prowlarr Image](https://docs.linuxserver.io/images/docker-prowlarr/)
 
+## TRaSH Guides
+
+- [Prowlarr - How to Set Up Proxy for Certain Indexers](https://trash-guides.info/Prowlarr/prowlarr-setup-proxy/) - Proxy configuration
+- [Prowlarr - Indexers with Limited API](https://trash-guides.info/Prowlarr/prowlarr-setup-limited-api/) - Handle API rate limits
+
 ## Ports
 
 | Port | Protocol | Description |
@@ -32,14 +37,6 @@ Prowlarr is an indexer manager/proxy that integrates with Radarr, Sonarr, and ot
 2. Search for your preferred indexers
 3. Configure credentials and settings for each
 
-### FlareSolverr Integration
-
-For indexers protected by Cloudflare:
-
-1. Go to Settings → Indexers
-2. Add FlareSolverr proxy:
-   - Host: `http://flaresolverr:8191`
-
 ### Connecting to Radarr/Sonarr
 
 1. Go to Settings → Apps
@@ -56,7 +53,6 @@ For indexers protected by Cloudflare:
 
 - **Radarr**: Syncs movie indexers
 - **Sonarr**: Syncs TV show indexers
-- **FlareSolverr**: Bypasses Cloudflare protection
 
 ## Data Directories
 

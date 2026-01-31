@@ -33,8 +33,8 @@ fi
 # Default values (can be overridden by .env)
 APPDATA="${APPDATA:-${SCRIPT_DIR}/appdata}"
 DATA_DIR="${DATA_DIR:-/srv/data}"
-UPLOAD_LOCATION="${UPLOAD_LOCATION:-/srv/photos}"
-DB_DATA_LOCATION="${DB_DATA_LOCATION:-${APPDATA}/immich-db}"
+UPLOAD_LOCATION="${UPLOAD_LOCATION:-${DATA_DIR}/media/photos}"
+DB_DATA_LOCATION="${DB_DATA_LOCATION:-${APPDATA}/immich/postgres}"
 PUID="${PUID:-1000}"
 PGID="${PGID:-1000}"
 
@@ -176,12 +176,12 @@ TZ=America/Montreal
 # Paths
 APPDATA=./appdata
 DATA_DIR=/srv/data
-HOST_ADDR=http://10.0.0.100
+HOST_ADDR=10.0.0.100
 
 # Immich
 IMMICH_VERSION=release
-UPLOAD_LOCATION=/srv/photos
-DB_DATA_LOCATION=./appdata/immich-db
+UPLOAD_LOCATION=/srv/data/media/photos
+DB_DATA_LOCATION=./appdata/immich/postgres
 DB_PASSWORD=change-me-to-a-secure-password
 DB_USERNAME=postgres
 DB_DATABASE_NAME=immich

@@ -6,6 +6,10 @@ FlareSolverr is a proxy server that helps bypass Cloudflare and DDoS-GUARD prote
 
 - [FlareSolverr GitHub](https://github.com/FlareSolverr/FlareSolverr)
 
+## TRaSH Guides
+
+- [Prowlarr - How to Set Up FlareSolverr](https://trash-guides.info/Prowlarr/prowlarr-setup-flaresolverr/) - Complete setup guide
+
 ## Ports
 
 | Port | Protocol | Description |
