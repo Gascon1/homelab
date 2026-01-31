@@ -26,7 +26,6 @@ cd homelab
 
 # Configure environment (edit with your values)
 cp .env.example .env
-nano .env
 
 # Run setup script to create directories
 ./setup.sh
