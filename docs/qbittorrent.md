@@ -101,11 +101,3 @@ Quick setup:
 6. Enter your NordVPN service credentials (from your Nord Account dashboard)
 
 Verify your setup at [ipleak.net](https://ipleak.net/) using the Torrent Address detection feature.
-
-## Troubleshooting
-
-### Slow Speeds
-
-- Ensure port 6881 is forwarded on your router
-- Check if your ISP throttles BitTorrent traffic
-- Verify connection limits aren't too restrictive
