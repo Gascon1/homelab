@@ -1,175 +1,229 @@
-# 🏡 Homelab Media Server
+# Homelab
 
-This repository contains the **Docker Compose setup** and supporting file structure for my home server. It runs on Ubuntu Server and provides a complete **media management stack**: Plex, Radarr, Sonarr, Prowlarr, qBittorrent, Overseerr, Homarr, and more.
+A Docker Compose stack for running a complete home media server with automated downloads, photo management, and system monitoring.
 
----
+## Services Overview
 
-## 📂 Repository Structure
+| Service                              | Port  | Description                    |
+| ------------------------------------ | ----- | ------------------------------ |
+| [Plex](docs/plex.md)                 | 32400 | Media streaming server         |
+| [Radarr](docs/radarr.md)             | 7878  | Movie collection manager       |
+| [Sonarr](docs/sonarr.md)             | 8989  | TV series collection manager   |
+| [Prowlarr](docs/prowlarr.md)         | 9696  | Indexer manager for \*arr apps |
+| [qBittorrent](docs/qbittorrent.md)   | 8080  | Torrent download client        |
+| [Overseerr](docs/overseerr.md)       | 5055  | Media request portal           |
+| [Immich](docs/immich.md)             | 2283  | Photo & video management       |
+| [Dashy](docs/dashy.md)               | 4000  | Dashboard for all services     |
+| [Netdata](docs/netdata.md)           | 19999 | System monitoring              |
+| [File Browser](docs/filebrowser.md)  | 8181  | Web-based file manager         |
+| [FlareSolverr](docs/flaresolverr.md) | 8191  | Cloudflare bypass proxy        |
 
-```
-homelab/                  # Git repo root
-├── compose.yml           # Main Docker Compose stack
-├── .env                  # Environment variables (UID, GID, TZ)
-├── .gitignore            # Excludes secrets & configs
-├── appdata/              # Container config data (not committed to git)
-│   ├── plex/             # Plex config + Library DB
-│   ├── qbittorrent/      # qBittorrent config
-│   ├── radarr/           # Radarr config
-│   ├── sonarr/           # Sonarr config
-│   ├── prowlarr/         # Prowlarr config
-│   ├── overseerr/        # Overseerr config
-│   └── homarr/           # Homarr configs, icons, and data
-└── README.md             # You are here
-```
-
-External storage lives outside the repo:
-
-```
-/srv/data1/
-├── media/
-│   ├── movies/
-│   └── series/
-└── torrents/
-    ├── movies/
-    └── series/
-
-/srv/data2/
-├── photos/
-└── videos/
-```
-
----
-
-## ⚙️ Setup
-
-### 1. Clone the Repo
+## Quick Start
 
 ```bash
-git clone https://github.com/<your-username>/homelab.git ~/homelab
-cd ~/homelab
-```
+# Clone the repository
+git clone https://github.com/<your-username>/homelab.git
+cd homelab
 
-### 2. Install Requirements
+# Run setup script to create directories
+./setup.sh
 
-On the server:
+# Configure environment
+cp .env.example .env
+nano .env  # Edit with your values
 
-```bash
-sudo apt update && sudo apt install -y \
-  docker.io docker-compose-plugin git curl zsh htop ufw
-```
-
-### 3. Configure Storage
-
-Partition/format drives as ext4, then mount persistently in `/etc/fstab`:
-
-```
-UUID=<uuid-of-hdd1>  /srv/data1  ext4  defaults  0  2
-UUID=<uuid-of-hdd2>  /srv/data2  ext4  defaults  0  2
-```
-
-Mount and set ownership so both your user (`mikel`) and Docker containers (PUID=1000) can read/write:
-
-```bash
-sudo mount -a
-sudo chown -R mikel:mikel /srv/data1 /srv/data2
-```
-
-### 4. Environment Variables
-
-Create `.env` in the repo root:
-
-```ini
-PUID=1000
-PGID=1000
-TZ=America/Montreal
-```
-
-### 5. Appdata
-
-Create config directories (excluded from git):
-
-```bash
-mkdir -p appdata/{plex,qbittorrent,radarr,sonarr,prowlarr,overseerr,homarr/{configs,icons,data}}
-```
-
-If migrating from another machine, `rsync` existing configs into these directories before starting.
-
----
-
-## 🚀 Usage
-
-### Bring Services Up
-
-```bash
+# Start services
 docker compose up -d
 ```
 
-### Stop Services
+## Repository Structure
+
+```
+homelab/
+├── compose.yml           # Docker Compose configuration
+├── setup.sh              # Directory initialization script
+├── .env.example          # Environment template
+├── .env                  # Environment variables (not in git)
+├── docs/                 # Per-service documentation
+│   ├── plex.md
+│   ├── radarr.md
+│   ├── sonarr.md
+│   ├── prowlarr.md
+│   ├── qbittorrent.md
+│   ├── overseerr.md
+│   ├── immich.md
+│   ├── dashy.md
+│   ├── netdata.md
+│   ├── filebrowser.md
+│   └── flaresolverr.md
+└── appdata/              # Container configurations (not in git)
+    ├── plex/
+    ├── radarr/
+    ├── sonarr/
+    ├── prowlarr/
+    ├── qbittorrent/
+    ├── overseerr/
+    ├── dashy/
+    ├── netdata/
+    ├── filebrowser/
+    └── immich-db/
+```
+
+## Environment Variables
+
+Create a `.env` file with these variables:
+
+```ini
+# User/Group IDs (run `id` to find yours)
+PUID=1000
+PGID=1000
+
+# Timezone
+TZ=America/Montreal
+
+# Paths
+APPDATA=./appdata
+DATA_DIR=/srv/data
+HOST_ADDR=http://10.0.0.100
+
+# Immich
+IMMICH_VERSION=release
+UPLOAD_LOCATION=/srv/photos
+DB_DATA_LOCATION=./appdata/immich-db
+DB_PASSWORD=your-secure-password
+DB_USERNAME=postgres
+DB_DATABASE_NAME=immich
+```
+
+## Data Directory Structure
+
+The stack expects this structure for media storage:
+
+```
+${DATA_DIR}/
+├── media/
+│   ├── movies/           # Radarr moves completed movies here
+│   └── series/           # Sonarr moves completed series here
+└── torrents/
+    └── incomplete/       # Active downloads
+```
+
+For photos (Immich):
+
+```
+${UPLOAD_LOCATION}/       # Photo and video uploads
+```
+
+## Manual Setup Steps
+
+### 1. Storage Configuration
+
+Mount your storage drives persistently:
 
 ```bash
+# Find drive UUIDs
+sudo blkid
+
+# Add to /etc/fstab
+echo "UUID=<your-uuid>  /srv/data  ext4  defaults  0  2" | sudo tee -a /etc/fstab
+
+# Mount
+sudo mount -a
+```
+
+### 2. Initial Directory Setup
+
+```bash
+# Run the setup script
+chmod +x setup.sh
+./setup.sh
+```
+
+This creates all required directories under `appdata/` and the data directories.
+
+### 3. Configure Services
+
+After starting the stack, each service needs initial configuration:
+
+1. **Plex**: Sign in with Plex account, add libraries
+2. **qBittorrent**: Change default password, configure download paths
+3. **Radarr/Sonarr**: Add root folders, connect to qBittorrent
+4. **Prowlarr**: Add indexers, connect to Radarr/Sonarr
+5. **Overseerr**: Connect to Plex, Radarr, and Sonarr
+6. **Immich**: Create admin account, configure backup
+
+See individual [service documentation](docs/) for detailed setup instructions.
+
+## Common Commands
+
+```bash
+# Start all services
+docker compose up -d
+
+# Stop all services
 docker compose down
+
+# View logs
+docker compose logs -f
+
+# View logs for specific service
+docker compose logs -f radarr
+
+# Restart a service
+docker compose restart sonarr
+
+# Update all containers
+docker compose pull && docker compose up -d
+
+# Check container status
+docker compose ps
 ```
 
-### Logs
+## Network
+
+All services run on a shared `homelab` Docker network, allowing them to communicate using container names as hostnames (e.g., `http://radarr:7878`).
+
+## Backups
+
+Critical data to backup:
+
+| Data            | Location              | Priority                      |
+| --------------- | --------------------- | ----------------------------- |
+| Service configs | `./appdata/`          | High                          |
+| Immich database | `${DB_DATA_LOCATION}` | High                          |
+| Photos/Videos   | `${UPLOAD_LOCATION}`  | Critical                      |
+| Media library   | `${DATA_DIR}/media/`  | Medium (can be re-downloaded) |
+
+## Security Considerations
+
+- Change all default passwords
+- Don't expose services directly to the internet
+- Use a reverse proxy with HTTPS for external access
+- Keep containers updated regularly
+- Review container capabilities (especially Netdata)
+
+## Troubleshooting
+
+### Permission Issues
+
+Ensure PUID/PGID in `.env` match your user:
 
 ```bash
-docker compose logs -f --timestamps
+id  # Shows your uid and gid
 ```
 
-### Service Ports
+### Container Can't Access Files
 
-- Plex → **host network** (accessible at `http://server-ip:32400/web`)
-- qBittorrent → `http://server-ip:8080`
-- Radarr → `http://server-ip:7878`
-- Sonarr → `http://server-ip:8989`
-- Prowlarr → `http://server-ip:9696`
-- Overseerr → `http://server-ip:5055`
-- Homarr → `http://server-ip:7575`
+Verify ownership:
 
----
+```bash
+ls -la appdata/
+ls -la /srv/data/
+```
 
-## 📦 Services Overview
+### Service Discovery Issues
 
-- **Plex** → Media streaming (movies, series, photos, videos). Uses `/srv/data1/media` and `/srv/data2/photos|videos`.
-- **qBittorrent** → Torrent client. Downloads into `/srv/data1/torrents`.
-- **Radarr** → Movie management. Moves downloads → `/srv/data1/media/movies`.
-- **Sonarr** → Series management. Moves downloads → `/srv/data1/media/series`.
-- **Prowlarr** → Indexer aggregator. Connects Radarr/Sonarr to torrent indexers.
-- **Overseerr** → Media request portal. Requests auto-route to Radarr/Sonarr.
-- **Homarr** → Dashboard for all services.
+Containers communicate via Docker network. Use container names, not `localhost`:
 
----
-
-## 🔐 Security
-
-- UFW firewall is enabled by default. Open only required ports.
-- SSH hardened: root login disabled, key-based login recommended.
-- Containers run as `PUID=1000` / `PGID=1000` → matches user `mikel`.
-
----
-
-## 🔄 Backups
-
-- Backup `~/homelab/appdata/` regularly (contains all service configs, Plex DB, etc.).
-- Backup `/srv/data1` and `/srv/data2` according to importance (media can often be redownloaded, photos/videos cannot).
-
----
-
-## 🛠️ Development Notes
-
-- **Keep `compose.yml` and appdata under version control** → easy rebuilds/migrations.
-- **Don’t commit appdata/** or `.env` (secrets, large DBs).
-- **Extend with new stacks** by adding YAML files under `stacks/` and including them in `docker compose`.
-
----
-
-## ✅ Checklist for New Install
-
-1. Install Ubuntu Server, set up SSH.
-2. Update system + install Docker & Compose.
-3. Partition & mount drives (`/srv/data1`, `/srv/data2`).
-4. Clone repo → `~/homelab`.
-5. Create `.env` and `appdata/` dirs.
-6. Restore configs via rsync (if migrating).
-7. `docker compose up -d`.
-8. Access services via browser → configure libraries and integrations.
+- Correct: `http://radarr:7878`
+- Wrong: `http://localhost:7878`
