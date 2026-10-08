@@ -1,6 +1,8 @@
 /* Rack, cards. One dark theme. Modules in a single grid; the dot-matrix glass is the signature. */
 
 :root {
+  --f-ui: 'Chakra Petch', system-ui, sans-serif;
+  --f-num: 'Doto Variable', monospace;
   --page: #0e1113;
   --tile: #161b1e;
   --tile-live: #202a2d;
@@ -36,13 +38,14 @@
 *, *::before, *::after { box-sizing: border-box; }
 
 /* Scales with width, but a short window pulls it down so the page tightens instead of scrolling. */
-html { -webkit-text-size-adjust: 100%; font-size: clamp(16px, min(calc(0.3vw + 12.2px), 2.15vh), 21px); }
+html { -webkit-text-size-adjust: 100%; font-size: calc(clamp(16px, min(calc(0.3vw + 12.2px), 2.15vh), 21px) * 0.96); }
 
 body {
   margin: 0;
   background: var(--page);
   color: var(--ink);
-  font-family: 'Bricolage Grotesque Variable', system-ui, sans-serif;
+  font-family: var(--f-ui);
+  letter-spacing: 0.01em;
   font-size: 1rem;
   line-height: 1.3;
   font-variant-numeric: tabular-nums;
@@ -79,7 +82,7 @@ button, input { font: inherit; color: inherit; }
 .grp { display: flex; flex-direction: column; min-width: 0; gap: 0.35rem; }
 
 .grp-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding-inline: 0.1rem; }
-.grp-head h2 { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.01em; line-height: 1.1; }
+.grp-head h2 { font-size: 1.3rem; font-weight: 700; letter-spacing: 0.01em; line-height: 1.1; }
 .grp-sum { font-size: 0.9rem; color: var(--ink-3); }
 .grp-sum.is-busy { color: var(--vfd); }
 .grp-sum.is-warn { color: var(--amber-text); }
@@ -119,7 +122,7 @@ button, input { font: inherit; color: inherit; }
   background: #2a3439; color: var(--ink-2);
   font-weight: 700; font-size: 0.95rem;
 }
-.name { flex: 1; min-width: 0; font-size: 1.05rem; font-weight: 650; line-height: 1.1; letter-spacing: -0.005em; overflow-wrap: anywhere; }
+.name { flex: 1; min-width: 0; font-size: 1.05rem; font-weight: 600; line-height: 1.1; letter-spacing: 0.01em; overflow-wrap: anywhere; }
 .name a { text-decoration: none; }
 .stretch { outline: none; }
 .stretch::after { content: ''; position: absolute; inset: 0; z-index: 1; }
@@ -155,13 +158,13 @@ button, input { font: inherit; color: inherit; }
 
 .lead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 0.5rem; }
 .big {
-  font-family: 'Doto Variable', monospace; font-weight: 800;
+  font-family: var(--f-num); font-weight: 800; letter-spacing: 0;
   font-size: min(2.3rem, calc((100cqw - 5.4rem) / var(--len) / 0.66));
   line-height: 1.05;
   color: var(--ink);
   white-space: nowrap;
 }
-.big small { font-size: 0.42em; margin-left: 0.3em; font-weight: 700; color: var(--ink-2); }
+.big small, .hnum small { font-size: 0.42em; margin-left: 0.3em; font-weight: 700; color: var(--ink-2); }
 .big-label { font-size: 0.95rem; color: var(--ink-2); }
 .big.zero, .big-label.zero, .m.zero { color: var(--ink-3); }
 .big.zero { opacity: 0.55; }
@@ -245,7 +248,7 @@ button, input { font: inherit; color: inherit; }
 .hbody { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: space-between; gap: 0.05rem; }
 .hlabel { font-size: 1.05rem; font-weight: 650; color: var(--ink-2); line-height: 1.15; }
 .hnum {
-  font-family: 'Doto Variable', monospace; font-weight: 800;
+  font-family: var(--f-num); font-weight: 800; letter-spacing: 0;
   font-size: min(2.5rem, calc((100cqw - 3.8rem) / 3 / 0.66));
   line-height: 1.05; color: var(--vfd);
   white-space: nowrap;
@@ -276,7 +279,7 @@ button, input { font: inherit; color: inherit; }
   border: 1px solid #14302a;
   border-radius: 5px;
   padding: 0.7rem 1.3rem;
-  font-family: 'Doto Variable', monospace;
+  font-family: var(--f-num); letter-spacing: 0;
   font-weight: 700;
   box-shadow: inset 0 0 50px rgba(127, 255, 225, 0.05);
 }
