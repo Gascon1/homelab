@@ -19,29 +19,18 @@ x-ls-common: &ls-common
 
 # ---------- Services ----------
 services:
-  # overseerr:
-  #   <<: *ls-common
-  #   image: lscr.io/linuxserver/overseerr:latest
-  #   container_name: overseerr
-  #   volumes:
-  #     - ${APPDATA}/overseerr:/config
-  #   ports:
-  #     - '5055:5055'
-  #   labels:
-  #     - dashy=include
-
   seerr:
     image: ghcr.io/seerr-team/seerr:latest
     init: true
     container_name: seerr
+    networks: [homelab]
     environment:
-      - LOG_LEVEL=debug
       - TZ=${TZ}
       - PORT=5055 #optional
     ports:
       - 5055:5055
     volumes:
-      - ${APPDATA}/config:/app/config
+      - ${APPDATA}/seerr:/app/config
     healthcheck:
       test: wget --no-verbose --tries=1 --spider http://localhost:5055/api/v1/settings/public || exit 1
       start_period: 20s
@@ -121,9 +110,7 @@ services:
       - PGID=${PGID}
       - TZ=${TZ}
       - VERSION=docker
-      # REMOVE if previously used:
-      # - PLEX_CLAIM=claim-Ti-QgP1Ezyxfa7G8Bd8H
-      - ADVERTISE_IP=http://10.0.0.142:32400/
+      - ADVERTISE_IP=${HOST_ADDR}:32400/
     volumes:
       # Make paths match the *arr containers to avoid path-mapping pain
       - ${DATA_DIR}:/data
@@ -135,33 +122,6 @@ services:
       - dashy.icon=png/plex.png
       - dashy.url=${HOST_ADDR}:32400/web
     restart: unless-stopped
-
-  # # Try plex in hostmode
-  # plex:
-  #   image: lscr.io/linuxserver/plex:latest
-  #   container_name: plex
-  #   network_mode: host # <= key change
-  #   environment:
-  #     - PUID=${PUID}
-  #     - PGID=${PGID}
-  #     - TZ=${TZ}
-  #     - VERSION=docker
-  #     # Remove the claim once the server is already claimed
-  #     # - PLEX_CLAIM=
-  #     # Optional but helpful so clients learn the right URL:
-  #     - ADVERTISE_IP=${HOST_ADDR}:32400/
-
-  #   volumes:
-  #     # Make paths match the *arr containers to avoid path-mapping pain
-  #     - ${DATA_DIR}:/data
-  #     - ${APPDATA}/plex:/config
-  #   labels:
-  #     - dashy=include
-  #     - dashy.port=32400
-  #     - dashy.name=Plex
-  #     - dashy.icon=png/plex.png
-  #     - dashy.url=${HOST_ADDR}:32400/web
-  #   restart: unless-stopped
 
   qbittorrent:
     <<: *ls-common

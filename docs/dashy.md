@@ -43,7 +43,7 @@ sections:
       - title: Plex
         url: http://server-ip:32400/web
         icon: png/plex.png
-      - title: Overseerr
+      - title: Seerr
         url: http://server-ip:5055
         icon: png/overseerr.png
 

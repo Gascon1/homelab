@@ -53,7 +53,7 @@ APPDATA_DIRS=(
     "${APPDATA}/radarr"
     "${APPDATA}/sonarr"
     "${APPDATA}/prowlarr"
-    "${APPDATA}/overseerr"
+    "${APPDATA}/seerr"
 
     # Dashboard
     "${APPDATA}/dashy"

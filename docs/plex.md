@@ -55,7 +55,7 @@ Configure remote access in Settings → Remote Access. The `ADVERTISE_IP` enviro
 ## Integration with Other Services
 
 - **Radarr/Sonarr**: Automatically scans for new media when downloads complete
-- **Overseerr**: Users can request media that gets automatically added
+- **Seerr**: Users can request media that gets automatically added
 
 ## Data Directories
 

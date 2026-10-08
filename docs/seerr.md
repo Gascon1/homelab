@@ -1,12 +1,11 @@
-# Overseerr
+# Seerr
 
-Overseerr is a request management and media discovery tool that integrates with Plex, Radarr, and Sonarr to allow users to request new content.
+Seerr is a request management and media discovery tool that integrates with Plex, Radarr, and Sonarr to allow users to request new content.
 
 ## Official Documentation
 
-- [Overseerr Website](https://overseerr.dev/)
-- [Overseerr Documentation](https://docs.overseerr.dev/)
-- [LinuxServer Overseerr Image](https://docs.linuxserver.io/images/docker-overseerr/)
+- [Seerr GitHub](https://github.com/seerr-team/seerr)
+- [Seerr Documentation](https://docs.seerr.dev)
 
 ## Ports
 
@@ -16,15 +15,15 @@ Overseerr is a request management and media discovery tool that integrates with 
 
 ## Volumes
 
-| Container Path | Description                          |
-| -------------- | ------------------------------------ |
-| `/config`      | Overseerr configuration and database |
+| Container Path | Description                      |
+| -------------- | -------------------------------- |
+| `/app/config`  | Seerr configuration and database |
 
 ## Configuration
 
 ### Initial Setup
 
-1. Access Overseerr at `http://<server-ip>:5055`
+1. Access Seerr at `http://<server-ip>:5055`
 2. Sign in with your Plex account
 3. Select your Plex server
 4. Sync libraries (Movies and TV Shows)
@@ -68,5 +67,5 @@ Overseerr is a request management and media discovery tool that integrates with 
 ## Data Directories
 
 ```
-${APPDATA}/overseerr/  # Config and database
+${APPDATA}/seerr/  # Config and database
 ```

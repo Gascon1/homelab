@@ -61,7 +61,7 @@ Configure quality profiles based on your preferences (Settings → Profiles). Co
 - **Prowlarr**: Provides indexer management
 - **qBittorrent**: Downloads movies
 - **Plex**: Media server for streaming
-- **Overseerr**: Request portal for users
+- **Seerr**: Request portal for users
 
 ## Data Directories
 

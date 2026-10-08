@@ -11,7 +11,7 @@ A Docker Compose stack for running a complete home media server with automated d
 | [Sonarr](docs/sonarr.md)            | 8989  | TV series collection manager   |
 | [Prowlarr](docs/prowlarr.md)        | 9696  | Indexer manager for \*arr apps |
 | [qBittorrent](docs/qbittorrent.md)  | 8080  | Torrent download client        |
-| [Overseerr](docs/overseerr.md)      | 5055  | Media request portal           |
+| [Seerr](docs/seerr.md)              | 5055  | Media request portal           |
 | [Immich](docs/immich.md)            | 2283  | Photo & video management       |
 | [Dashy](docs/dashy.md)              | 4000  | Dashboard for all services     |
 | [Netdata](docs/netdata.md)          | 19999 | System monitoring              |
@@ -114,7 +114,7 @@ After starting the stack, each service needs initial configuration:
 2. **qBittorrent**: Change default password, configure download paths
 3. **Radarr/Sonarr**: Add root folders, connect to qBittorrent
 4. **Prowlarr**: Add indexers, connect to Radarr/Sonarr
-5. **Overseerr**: Connect to Plex, Radarr, and Sonarr
+5. **Seerr**: Connect to Plex, Radarr, and Sonarr
 6. **Immich**: Create admin account, configure backup
 
 See individual [service documentation](docs/) for detailed setup instructions.
