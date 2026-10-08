@@ -1,128 +1,223 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import type { ComponentChildren } from 'preact';
 import type { Service, State } from './types';
 import { useRack } from './useRack';
 import { Display } from './Display';
-import { Icon, Lamp, Segments, Trace } from './parts';
-import { bytes, clock, linkFor, sinceLabel, statusSentence, STATUS_WORD, uptime } from './format';
+import { Icon, Lamp, Segments } from './parts';
+import { bytes, clock, linkFor, sinceLabel, STATUS_WORD, uptime } from './format';
 import { bestScore } from './fuzzy';
+import { pack, sectionWidth, useUnits } from './layout';
 
 interface Target { key: string; kind: 'service' | 'bookmark'; name: string; group: string; href: string | null; svc?: Service; score: number }
+type Tone = 'ok' | 'warn' | 'crit';
 
-const readTheme = (): 'light' | 'dark' => {
-  const a = document.documentElement.getAttribute('data-theme');
-  if (a === 'light' || a === 'dark') return a;
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-};
+/* ---------- reading a service's state ---------- */
 
-function Readouts({ s }: { s: Service }) {
-  const sentence = statusSentence(s);
-  if (sentence) return <p class={`says says-${s.status}`}>{sentence}</p>;
+const isZero = (v: string) => /^0(\.0+)?(?![\d.,])/.test(v.trim());
+// Counts that mean "something is going on right now", as opposed to inventory like photos or indexers.
+const ACTIVITY = /stream|queue|download|upload|transcod|waiting|active|seeding|request|pulling|playing/i;
+
+function describe(s: Service) {
   const w = s.widget;
-  if (w && !w.ok) return <p class="says says-setup">{w.error ?? 'Stats are not available yet.'}</p>;
-  if (w && w.stats.length) {
-    return (
-      <p class="stats">
-        {w.stats.map((st) => (
-          <span key={st.label} class={`stat tone-${st.tone}`}>
-            <b>{st.value}</b> {st.label}
-          </span>
-        ))}
-      </p>
-    );
-  }
-  return s.description ? <p class="says says-desc">{s.description}</p> : <p class="says" />;
+  const down = s.status === 'down' || s.status === 'stopped';
+  const stats = w?.ok ? w.stats : [];
+  const meterOn = !!w?.ok && !!w.meter && w.meter.value > 0.04;
+  const busy = !down && (meterOn || stats.some((t) => ACTIVITY.test(t.label) && !isZero(t.value)));
+  const attention = !down && (s.status === 'slow' || stats.some((t) => (t.tone === 'warn' || t.tone === 'bad') && !isZero(t.value)));
+  const needsSetup = !down && !!w && !w.ok;
+  const featured = /^(plex|qbittorrent)$/.test(s.id) || !!w?.meter;
+  return { down, stats, busy, attention, needsSetup, featured };
 }
 
-function Unit({ s, i, selected, showGroup }: { s: Service; i: number; selected: boolean; showGroup: boolean }) {
+/* ---------- tiles ---------- */
+
+function ServiceTile({ s, w, selected, showGroup }: { s: Service; w: number; selected: boolean; showGroup: boolean }) {
+  const [open, setOpen] = useState(false);
   const href = linkFor(s);
-  const down = s.status === 'down' || s.status === 'stopped';
-  const meter = !down && s.widget?.ok ? s.widget.meter : null;
-  const body = (
-    <>
-      <span class="id">
-        <Lamp status={s.status} />
-        <Icon service={s} />
-        <span class="name">
-          {s.name}
-          <span class="sr">, {STATUS_WORD[s.status].toLowerCase()}</span>
-        </span>
-        {showGroup && <span class="where">{s.group}</span>}
-        {selected && <kbd class="enter">Enter</kbd>}
-      </span>
-      <span class="read"><Readouts s={s} /></span>
-      <span class="gear">
-        <span class="gear-meter">{meter && <Segments value={meter.value} count={8} label={meter.label} />}</span>
-        <span class="ms">{s.latencyMs != null && !down ? <>{Math.round(s.latencyMs)}<small> ms</small></> : <span aria-hidden="true">no reply</span>}</span>
-        <Trace history={s.history} />
-      </span>
-    </>
-  );
+  const d = describe(s);
+  const wide = w >= 2;
+  const since = sinceLabel(s.since);
+  const meter = !d.down && s.widget?.ok ? s.widget.meter : null;
+  const word = STATUS_WORD[s.status];
+  const cls = `tile svc st-${s.status}${d.busy ? ' busy' : ''}${d.attention ? ' attn' : ''}${wide ? ' wide' : ''}${d.needsSetup ? ' setup' : ''}`;
+
+  let body: ComponentChildren;
+  if (d.down) {
+    body = (
+      <>
+        <p class="alarm">{word}</p>
+        <p class="alarm-note">{since ? `Since ${since}. ` : ''}{s.status === 'down' ? 'Check its logs.' : 'Start the container.'}</p>
+      </>
+    );
+  } else if (d.needsSetup) {
+    const msg = s.widget?.error ?? 'Stats are not available yet.';
+    body = (
+      <>
+        <p class="lead">
+          <button type="button" class="chip" aria-expanded={open} aria-controls={`d-${s.id}`} title={msg} onClick={() => setOpen(!open)}>Needs setup</button>
+        </p>
+        {s.description && <p class="desc">{s.description}</p>}
+        <div class={`detail${open ? ' is-open' : ''}`} role="note" id={`d-${s.id}`}>
+          <p>{msg}</p>
+          <button type="button" class="chip chip-quiet" onClick={() => setOpen(false)}>Close</button>
+        </div>
+      </>
+    );
+  } else if (d.stats.length) {
+    const [first, ...rest] = d.stats;
+    const m = /^([\d.,]+)\s*(.*)$/.exec(first!.value);
+    const num = m ? m[1]! : first!.value;
+    const unit = m ? m[2]! : '';
+    const zero = isZero(first!.value);
+    body = (
+      <>
+        <p class="lead">
+          <span class={`big${zero ? ' zero' : ''} tone-${first!.tone}`} style={{ '--len': Math.max(2, num.length + (unit ? 2.2 : 0)) }}>{num}{unit && <small>{unit}</small>}</span>
+          <span class={`big-label${zero ? ' zero' : ''}`}>{first!.label}</span>
+        </p>
+        {rest.length > 0 && (
+          <p class="more">
+            {rest.map((t) => (
+              <span key={t.label} class={`m${isZero(t.value) ? ' zero' : ''} tone-${t.tone}`}><b>{t.value}</b> {t.label}</span>
+            ))}
+          </p>
+        )}
+      </>
+    );
+  } else {
+    body = <p class="desc desc-solo">{s.description ?? ''}</p>;
+  }
+
   return (
-    <li class={`unit st-${s.status}`} style={{ '--i': i }} data-sel={selected ? '' : undefined} data-key={s.id}>
-      {href ? <a class="face" href={href}>{body}</a> : <div class="face">{body}</div>}
+    <li class={cls} style={{ gridColumn: `span ${w}` }} data-sel={selected ? '' : undefined}>
+      <div class="head">
+        <Icon service={s} />
+        <h3 class="name">
+          {href ? <a class="stretch" href={href} target="_blank" rel="noopener noreferrer">{s.name}<span class="sr">, {word.toLowerCase()}</span></a> : <>{s.name}<span class="sr">, {word.toLowerCase()}</span></>}
+        </h3>
+        {selected && <kbd class="enter">Enter</kbd>}
+        {showGroup && <span class="where">{s.group}</span>}
+        <span class="state" aria-hidden="true">
+          {s.status !== 'up' && <span class="state-word">{s.status === 'down' ? 'Down' : word}</span>}
+          <Lamp status={s.status} />
+        </span>
+      </div>
+      <div class="body">
+        <div class="main">{body}</div>
+        {s.latencyMs != null && !d.down && <span class="ms">{Math.round(s.latencyMs)} ms</span>}
+      </div>
+      {meter && <div class="foot"><Segments value={meter.value} count={wide ? 24 : 12} label={meter.label} /></div>}
     </li>
   );
 }
 
-function BookmarkRow({ name, href, group, selected }: { name: string; href: string; group: string; selected: boolean }) {
+function BookmarkTile({ name, href, group, selected, w }: { name: string; href: string; group: string; selected: boolean; w: number }) {
   let host = href;
   try { host = new URL(href).host; } catch { /* keep raw */ }
   return (
-    <li class="unit unit-bookmark" data-sel={selected ? '' : undefined}>
-      <a class="face" href={href}>
-        <span class="id"><span class="icon icon-mono" aria-hidden="true">{name.charAt(0).toUpperCase()}</span><span class="name">{name}</span><span class="where">{group}</span>{selected && <kbd class="enter">Enter</kbd>}</span>
-        <span class="read"><p class="says says-desc">{host}</p></span>
-      </a>
+    <li class="tile svc bookmark" style={{ gridColumn: `span ${w}` }} data-sel={selected ? '' : undefined}>
+      <div class="head">
+        <span class="icon icon-mono" aria-hidden="true">{name.charAt(0).toUpperCase()}</span>
+        <h3 class="name"><a class="stretch" href={href} target="_blank" rel="noopener noreferrer">{name}</a></h3>
+        {selected && <kbd class="enter">Enter</kbd>}
+        <span class="where">{group}</span>
+      </div>
+      <div class="body"><div class="main"><p class="desc desc-solo">{host}</p></div></div>
     </li>
   );
 }
 
-function Meters({ host }: { host: State['host'] }) {
-  const tone = (p: number, w = 75, c = 90) => (p >= c ? 'crit' : p >= w ? 'warn' : 'ok') as 'ok' | 'warn' | 'crit';
-  const cells: { label: string; v: number; text: string; tone: 'ok' | 'warn' | 'crit'; detail?: string }[] = [];
-  if (host.cpu) cells.push({ label: 'CPU', v: host.cpu.percent / 100, text: `${Math.round(host.cpu.percent)}%`, tone: tone(host.cpu.percent, 70, 90) });
+interface HostTileData { key: string; kind: 'gauge' | 'fact'; label: string; big: string; unit?: string; v?: number; tone: Tone; detail: string }
+
+const toneOf = (p: number, warn: number, crit: number): Tone => (p >= crit ? 'crit' : p >= warn ? 'warn' : 'ok');
+const toneNote: Record<Tone, string> = { ok: '', warn: 'Getting full. ', crit: 'Nearly full. ' };
+/** "5.6 of 8.0 TB" when both sides share a unit. */
+function pair(used: number, total: number): string {
+  const a = bytes(used), b = bytes(total);
+  const [an, au] = a.split(' '), [, bu] = b.split(' ');
+  return au === bu ? `${an} of ${b}` : `${a} of ${b}`;
+}
+
+function hostTiles(host: State['host']): HostTileData[] {
+  const out: HostTileData[] = [];
+  if (host.cpu) {
+    const p = host.cpu.percent;
+    out.push({ key: 'cpu', kind: 'gauge', label: 'Processor', big: String(Math.round(p)), unit: '%', v: p / 100, tone: toneOf(p, 70, 90), detail: `${host.cpu.cores} cores` });
+  }
   if (host.memory) {
     const p = (host.memory.usedBytes / host.memory.totalBytes) * 100;
-    cells.push({ label: 'Memory', v: p / 100, text: `${Math.round(p)}%`, tone: tone(p, 80, 92), detail: `${bytes(host.memory.usedBytes)} of ${bytes(host.memory.totalBytes)}` });
+    const tone = toneOf(p, 80, 92);
+    out.push({ key: 'mem', kind: 'gauge', label: 'Memory', big: String(Math.round(p)), unit: '%', v: p / 100, tone, detail: `${toneNote[tone]}${pair(host.memory.usedBytes, host.memory.totalBytes)}` });
   }
-  for (const d of host.disks) {
-    const p = (d.usedBytes / d.totalBytes) * 100;
-    cells.push({ label: d.label, v: p / 100, text: `${Math.round(p)}%`, tone: tone(p, 80, 92), detail: `${bytes(d.usedBytes)} of ${bytes(d.totalBytes)}` });
+  for (const dk of host.disks) {
+    const p = (dk.usedBytes / dk.totalBytes) * 100;
+    const tone = toneOf(p, 80, 92);
+    out.push({ key: `disk:${dk.path}`, kind: 'gauge', label: `Disk, ${dk.label}`, big: String(Math.round(p)), unit: '%', v: p / 100, tone, detail: `${toneNote[tone]}${pair(dk.usedBytes, dk.totalBytes)}` });
   }
-  const facts: string[] = [];
-  if (host.uptimeSeconds != null) facts.push(`Up ${uptime(host.uptimeSeconds)}`);
-  if (host.load) facts.push(`Load ${host.load.map((n) => n.toFixed(2)).join(' ')}`);
-  if (host.tempC != null) facts.push(`${Math.round(host.tempC)} °C`);
-  if (!cells.length && !facts.length) return null;
+  if (host.uptimeSeconds != null) {
+    const u = uptime(host.uptimeSeconds);
+    const [n, ...rest] = u.split(' ');
+    out.push({ key: 'up', kind: 'fact', label: 'Uptime', big: n!, unit: rest.join(' '), tone: 'ok', detail: 'Since last restart' });
+  }
+  if (host.load) out.push({ key: 'load', kind: 'fact', label: 'Load', big: host.load[0].toFixed(2), tone: 'ok', detail: `${host.load[1].toFixed(2)} 5 min, ${host.load[2].toFixed(2)} 15 min` });
+  if (host.tempC != null) {
+    const t = host.tempC;
+    out.push({ key: 'temp', kind: 'fact', label: 'Temperature', big: String(Math.round(t)), unit: '°C', tone: t >= 85 ? 'crit' : t >= 70 ? 'warn' : 'ok', detail: t >= 85 ? 'Running hot' : t >= 70 ? 'Warm' : 'Normal' });
+  }
+  return out;
+}
+
+function HostTile({ t, w }: { t: HostTileData; w: number }) {
   return (
-    <section class="host" aria-label="This machine">
-      <ul class="dials">
-        {cells.map((c) => (
-          <li key={c.label} class="dial">
-            <span class="dial-label">{c.label}</span>
-            <Segments value={c.v} count={20} tone={c.tone} label={c.label} />
-            <span class={`dial-val dial-${c.tone}`}>{c.text}{c.tone !== 'ok' && <span class="sr">{c.tone === 'crit' ? ', critical' : ', getting full'}</span>}</span>
-            {c.detail && <span class="dial-detail">{c.detail}</span>}
-          </li>
-        ))}
-      </ul>
-      {facts.length > 0 && <p class="facts">{facts.map((f) => <span key={f}>{f}</span>)}</p>}
+    <li class={`tile host host-${t.kind} tone-${t.tone}`} style={{ gridColumn: `span ${w}` }}>
+      <div class="hbody">
+        <p class="hlabel">{t.label}</p>
+        <p class="hnum">{t.big}{t.unit && <small>{t.unit}</small>}{t.tone !== 'ok' && <span class="sr">{t.tone === 'crit' ? ', critical' : ', getting high'}</span>}</p>
+        <p class="hdetail">{t.detail}</p>
+      </div>
+      {t.kind === 'gauge' && (
+        <div class="well"><Segments value={t.v ?? 0} count={10} tone={t.tone} label={t.label} /></div>
+      )}
+    </li>
+  );
+}
+
+/* ---------- sections ---------- */
+
+type TileNode = { key: string; base: number; hostTile?: HostTileData; svc?: Service };
+
+function Section({ title, summary, summaryTone, span, children }: { title: string; summary?: string; summaryTone?: string; span: number; children: ComponentChildren }) {
+  return (
+    <section class="grp" style={{ gridColumn: `span ${span}` }} aria-label={title}>
+      <header class="grp-head">
+        <h2>{title}</h2>
+        {summary && <span class={`grp-sum ${summaryTone ?? ''}`}>{summary}</span>}
+      </header>
+      {children}
     </section>
   );
 }
 
+function summarise(svcs: Service[]): { text: string; tone: string } {
+  const bad = svcs.filter((s) => s.status === 'down' || s.status === 'stopped');
+  if (bad.length) return { text: `${bad.length} ${bad.length === 1 ? 'needs' : 'need'} attention`, tone: 'is-bad' };
+  const busy = svcs.filter((s) => describe(s).busy).length;
+  const attn = svcs.filter((s) => describe(s).attention).length;
+  if (attn) return { text: `${attn} to look at`, tone: 'is-warn' };
+  return busy ? { text: `${busy} busy`, tone: 'is-busy' } : { text: 'All quiet', tone: '' };
+}
+
 export function App() {
   const { state, link, lastOk } = useRack();
+  const units = useUnits();
   const [query, setQuery] = useState('');
   const [sel, setSel] = useState<number | null>(null);
   const [warm, setWarm] = useState(true);
-  const [theme, setTheme] = useState<'light' | 'dark'>(readTheme);
   const input = useRef<HTMLInputElement>(null);
   const stale = link === 'lost' && !!state;
 
-  useEffect(() => { const t = setTimeout(() => setWarm(false), 3200); return () => clearTimeout(t); }, []);
+  useEffect(() => { const t = setTimeout(() => setWarm(false), 1600); return () => clearTimeout(t); }, []);
 
-  // Title reflects problems.
   useEffect(() => {
     const all = state?.groups.flatMap((g) => g.services) ?? [];
     const down = all.filter((s) => s.status === 'down').length;
@@ -149,13 +244,14 @@ export function App() {
     return out.sort((a, b) => b.score - a.score);
   }, [q, state, flat]);
 
+  const resultWidths = useMemo(() => results.map(() => 2), [results]);
+
   useEffect(() => setSel(q ? 0 : null), [q]);
   useEffect(() => {
     if (sel == null) return;
     document.querySelector('[data-sel]')?.scrollIntoView({ block: 'nearest' });
   }, [sel, results]);
 
-  // Type anywhere, or press /, to jump into the launcher.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
@@ -169,10 +265,9 @@ export function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [query]);
 
-  const open = (t: Target | undefined, newTab: boolean) => {
-    if (!t?.href) return;
-    if (newTab) window.open(t.href, '_blank', 'noopener');
-    else window.location.assign(t.href);
+  // Both Enter and Ctrl/Cmd+Enter open in a new tab.
+  const open = (t: Target | undefined) => {
+    if (t?.href) window.open(t.href, '_blank', 'noopener,noreferrer');
   };
 
   const onInputKey = (e: KeyboardEvent) => {
@@ -183,7 +278,7 @@ export function App() {
       setSel((s) => (((s ?? (d > 0 ? -1 : 0)) + d + results.length) % results.length));
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      open(results[sel ?? 0], e.ctrlKey || e.metaKey);
+      open(results[sel ?? 0]);
     } else if (e.key === 'Escape') {
       e.preventDefault();
       setQuery('');
@@ -191,14 +286,6 @@ export function App() {
     }
   };
 
-  const toggleTheme = () => {
-    const next = theme === 'dark' ? 'light' : 'dark';
-    setTheme(next);
-    document.documentElement.setAttribute('data-theme', next);
-    try { localStorage.setItem('rack-theme', next); } catch { /* storage unavailable */ }
-  };
-
-  // Display sentences, with connection trouble first.
   const lines = useMemo(() => {
     if (!state) {
       return link === 'lost'
@@ -209,103 +296,142 @@ export function App() {
     return state.display.length ? state.display : ['Nothing to report'];
   }, [state, link, lastOk]);
 
-  let unitIndex = 0;
-  const empty = state && flat.length === 0;
+  const empty = !!state && flat.length === 0;
+
+  /* Build the sections: groups (Machine also carries the host meters), then bookmark groups. */
   const bookmarkGroups = useMemo(() => {
     const m = new Map<string, { name: string; url: string }[]>();
     for (const b of state?.bookmarks ?? []) {
       const g = b.group ?? 'Links';
       m.set(g, [...(m.get(g) ?? []), b]);
     }
-    return [...m.entries()];
+    return [...m.entries()].map(([name, items]) => ({ name, items }));
   }, [state]);
 
-  return (
-    <div class={`cabinet ${warm ? 'warm' : ''} ${stale ? 'stale' : ''}`}>
-      <div class="rack">
-        <Display title={state?.title ?? 'Homelab'} lines={lines} link={link} stale={stale} />
+  const plan = useMemo(() => {
+    if (!state) return { sections: [], links: 0 };
+    const host = hostTiles(state.host);
+    const groups = state.groups.map((g) => ({ name: g.name, svcs: g.services, host: g.name === 'Machine' ? host : [] }));
+    if (host.length && !groups.some((g) => g.name === 'Machine')) groups.push({ name: 'Machine', svcs: [], host });
+    const prepared = groups.map((g) => {
+      const few = g.svcs.length + g.host.length <= 2;
+      const nodes: TileNode[] = [
+        ...[...g.svcs].sort((a, b) => Number(describe(b).featured) - Number(describe(a).featured))
+          .map((s) => ({ key: s.id, svc: s, base: units === 2 ? 2 : describe(s).featured && !few ? 2 : 1 })),
+        ...g.host.map((h) => ({ key: h.key, hostTile: h, base: 1 })),
+      ];
+      return { ...g, nodes, area: nodes.reduce((n, t) => n + t.base, 0) };
+    });
+    const want = prepared.map((g) => (units === 2 ? 2 : sectionWidth(g.area, units)));
+    if (bookmarkGroups.length) want.push(2);
+    const spans = pack(want, units, true);
+    const sections = prepared.map((g, i) => {
+      const T = spans[i]!;
+      return { ...g, T, widths: pack(g.nodes.map((n) => n.base), T, true) };
+    });
+    return { sections, links: bookmarkGroups.length ? spans[spans.length - 1]! : 0 };
+  }, [state, units, bookmarkGroups]);
+  const sections = plan.sections;
 
-        <div class="launcher">
-          <span class="launcher-label" aria-hidden="true">Find</span>
-          <label class="launcher-box">
-            <span class="sr">Find a service</span>
-            <input
-              ref={input}
-              type="text"
-              value={query}
-              placeholder="Find a service"
-              autocomplete="off"
-              autocapitalize="off"
-              spellcheck={false}
-              enterkeyhint="go"
-              aria-controls="results"
-              onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
-              onKeyDown={onInputKey}
-            />
-            {query ? <kbd class="key">Esc</kbd> : <kbd class="key">/</kbd>}
+  const displaySpan = units === 8 ? 6 : units === 6 ? 4 : units === 4 ? 3 : 2;
+  const findSpan = units - displaySpan || units;
+
+  const total = flat.length;
+  const downCount = flat.filter((s) => s.status === 'down' || s.status === 'stopped').length;
+
+  return (
+    <div class={`page ${warm ? 'warm' : ''} ${stale ? 'stale' : ''}`}>
+      <div class="board" style={{ '--u': units }}>
+        <section class="cell-display" style={{ gridColumn: `span ${displaySpan}` }}>
+          <Display title={state?.title ?? 'Homelab'} lines={lines} link={link} stale={stale} />
+        </section>
+
+        <section class="cell-find" style={{ gridColumn: `span ${findSpan}` }} aria-label="Find">
+          <label class="find-box">
+            <span class="find-label">Find a service</span>
+            <span class="find-row">
+              <input
+                ref={input}
+                type="text"
+                value={query}
+                placeholder="Start typing"
+                autocomplete="off"
+                autocapitalize="off"
+                spellcheck={false}
+                enterkeyhint="go"
+                aria-controls="results"
+                onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
+                onKeyDown={onInputKey}
+              />
+              {query ? <kbd class="key">Esc</kbd> : <kbd class="key">/</kbd>}
+            </span>
           </label>
-        </div>
+          <p class="find-sum" role="status">
+            {state ? (downCount ? `${downCount} of ${total} services need attention` : `${total} services, all running`) : 'Connecting'}
+          </p>
+        </section>
 
         {state?.warnings.length ? (
-          <aside class="notice" aria-label="Notices">
+          <aside class="notice" style={{ gridColumn: '1 / -1' }} aria-label="Notices">
             {state.warnings.map((w) => <p key={w}>{w}</p>)}
           </aside>
         ) : null}
 
-        {stale && <p class="notice notice-stale" role="status">Lost connection to the server. What you see is from {lastOk ? clock(lastOk) : 'earlier'} and may be out of date. Retrying.</p>}
+        {stale && <p class="notice notice-stale" style={{ gridColumn: '1 / -1' }} role="status">Lost connection to the server. What you see is from {lastOk ? clock(lastOk) : 'earlier'} and may be out of date. Retrying.</p>}
 
-        <main id="results" class="bays">
-          {!state && link === 'lost' && (
-            <p class="empty">The server did not answer. Check that the Rack container is running, then reload this page. It keeps trying in the background.</p>
-          )}
-          {empty && (
-            <p class="empty">Nothing in the rack yet. Add the label <code>rack.enable=true</code> to a container and it appears here.</p>
-          )}
-          {q ? (
-            <section class="bay bay-results" aria-label="Matches">
-              <h2 class="legend">{results.length ? `${results.length} ${results.length === 1 ? 'match' : 'matches'}` : 'No matches'}</h2>
-              {results.length ? (
-                <ul class="units" role="list">
-                  {results.map((t, n) => t.kind === 'service' && t.svc
-                    ? <Unit key={t.key} s={t.svc} i={n} selected={sel === n} showGroup />
-                    : <BookmarkRow key={t.key} name={t.name} href={t.href ?? '#'} group={t.group} selected={sel === n} />)}
-                </ul>
-              ) : (
-                <p class="empty empty-inline">Nothing matches “{q}”. Press Escape to see everything again.</p>
-              )}
-            </section>
-          ) : (
-            state?.groups.map((g) => (
-              <section key={g.name} class="bay" aria-labelledby={`g-${g.name}`}>
-                <h2 class="legend" id={`g-${g.name}`}>{g.name}</h2>
-                <ul class="units" role="list">
-                  {g.services.map((s) => <Unit key={s.id} s={s} i={unitIndex++} selected={false} showGroup={false} />)}
-                </ul>
-              </section>
-            ))
-          )}
-        </main>
-
-        {!q && bookmarkGroups.length > 0 && (
-          <nav class="links" aria-label="Bookmarks">
-            {bookmarkGroups.map(([name, items]) => (
-              <section key={name} class="bay bay-links">
-                <h2 class="legend">{name}</h2>
-                <ul class="chips" role="list">
-                  {items.map((b) => <li key={b.url}><a href={b.url}>{b.name}</a></li>)}
-                </ul>
-              </section>
-            ))}
-          </nav>
+        {!state && link === 'lost' && (
+          <p class="empty" style={{ gridColumn: '1 / -1' }}>The server did not answer. Check that the Rack container is running, then reload this page. It keeps trying in the background.</p>
+        )}
+        {empty && (
+          <p class="empty" style={{ gridColumn: '1 / -1' }}>Nothing here yet. Add the label <code>rack.enable=true</code> to a container and it appears here.</p>
         )}
 
-        {state && <Meters host={state.host} />}
-
-        <footer class="base">
-          <button type="button" class="theme" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Switch to the silver face' : 'Switch to the black face'}>
-            {theme === 'dark' ? 'Silver face' : 'Black face'}
-          </button>
-        </footer>
+        <main id="results" class="main" style={{ gridColumn: '1 / -1' }}>
+          {q ? (
+            <div class="board board-inner" style={{ '--u': units }}>
+              <Section title={results.length ? `${results.length} ${results.length === 1 ? 'match' : 'matches'}` : 'No matches'} span={units}>
+                {results.length ? (
+                  <ul class="tiles" role="list" style={{ '--t': units }}>
+                    {results.map((t, n) => t.kind === 'service' && t.svc
+                      ? <ServiceTile key={t.key} s={t.svc} w={resultWidths[n]!} selected={sel === n} showGroup />
+                      : <BookmarkTile key={t.key} name={t.name} href={t.href ?? '#'} group={t.group} selected={sel === n} w={resultWidths[n]!} />)}
+                  </ul>
+                ) : (
+                  <p class="empty empty-inline">Nothing matches “{q}”. Press Escape to see everything again.</p>
+                )}
+              </Section>
+            </div>
+          ) : (
+            <div class="board board-inner" style={{ '--u': units }}>
+              {sections.map((g) => {
+                const sum = summarise(g.svcs);
+                return (
+                  <Section key={g.name} title={g.name} span={g.T} summary={g.svcs.length ? sum.text : undefined} summaryTone={sum.tone}>
+                    <ul class="tiles" role="list" style={{ '--t': g.T }}>
+                      {g.nodes.map((n, i) => n.svc
+                        ? <ServiceTile key={n.key} s={n.svc} w={g.widths[i]!} selected={false} showGroup={false} />
+                        : <HostTile key={n.key} t={n.hostTile!} w={g.widths[i]!} />)}
+                    </ul>
+                  </Section>
+                );
+              })}
+              {plan.links > 0 && (
+                <Section title="Links" span={plan.links}>
+                  <nav class="tile links" aria-label="Bookmarks">
+                    {bookmarkGroups.map((b) => (
+                      <div key={b.name} class="mark-group">
+                        <h3>{b.name}</h3>
+                        <ul role="list">
+                          {b.items.map((i) => <li key={i.url}><a href={i.url} target="_blank" rel="noopener noreferrer">{i.name}</a></li>)}
+                        </ul>
+                      </div>
+                    ))}
+                  </nav>
+                </Section>
+              )}
+            </div>
+          )}
+        </main>
       </div>
     </div>
   );

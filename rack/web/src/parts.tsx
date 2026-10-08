@@ -49,27 +49,3 @@ export function Segments({ value, count, tone = 'ok', label }: { value: number; 
     </span>
   );
 }
-
-export function Trace({ history }: { history: (number | null)[] }) {
-  const W = 72, H = 18;
-  const vals = history.filter((v): v is number => v != null);
-  if (history.length < 2 || vals.length === 0) return <span class="trace" aria-hidden="true" />;
-  const max = Math.max(80, ...vals);
-  const step = W / (history.length - 1);
-  const y = (v: number) => (H - 3 - (v / max) * (H - 6)).toFixed(1);
-  let d = '';
-  let pen = false;
-  const fails: number[] = [];
-  history.forEach((v, i) => {
-    const x = (i * step).toFixed(1);
-    if (v == null) { pen = false; fails.push(i * step); return; }
-    d += `${pen ? 'L' : 'M'}${x} ${y(v)}`;
-    pen = true;
-  });
-  return (
-    <svg class="trace" viewBox={`0 0 ${W} ${H}`} width={W} height={H} aria-hidden="true" focusable="false">
-      <path d={d} class="trace-line" />
-      {fails.map((x) => <path key={x} d={`M${x.toFixed(1)} ${H - 6}V${H}`} class="trace-fail" />)}
-    </svg>
-  );
-}

@@ -3,7 +3,7 @@
 import type { Plugin } from 'vite';
 import type { Service, State, Status, Widget } from '../src/types';
 
-export const SCENARIOS = ['healthy', 'down', 'setup', 'empty', 'many', 'offline', 'drop'] as const;
+export const SCENARIOS = ['healthy', 'down', 'setup', 'empty', 'many', 'offline', 'drop', 'quiet'] as const;
 type Scenario = (typeof SCENARIOS)[number];
 
 const t0 = Date.now();
@@ -109,6 +109,21 @@ const extraNames = [
 function build(scn: Scenario, tick: number): State {
   const now = Date.now();
   let list = defs(scn);
+  if (scn === 'quiet') {
+    // Mirrors a calm real server: every count zero, two services without credentials, one Netdata warning.
+    const zero = (type: string, labels: string[]): Widget => ok(labels.map((label) => ({ label, value: '0', tone: 'normal' as const })), null, type);
+    const q: Record<string, Widget> = {
+      plex: zero('plex', ['streams']),
+      seerr: zero('seerr', ['waiting']),
+      sonarr: zero('sonarr', ['in queue', 'airing today']),
+      radarr: zero('radarr', ['in queue', 'missing']),
+      prowlarr: ok([{ label: 'indexers', value: '7', tone: 'normal' }, { label: 'failing', value: '0', tone: 'normal' }], null, 'prowlarr'),
+      qbittorrent: missing('qBittorrent', 'RACK_QBITTORRENT_USERNAME and RACK_QBITTORRENT_PASSWORD'),
+      immich: missing('Immich', 'RACK_IMMICH_API_KEY'),
+      netdata: ok([{ label: 'warning', value: '1', tone: 'warn' }], null, 'netdata'),
+    };
+    list = list.map((d) => ({ ...d, status: 'up' as Status, widget: q[d.id] ? () => q[d.id]! : null }));
+  }
   if (scn === 'empty') list = [];
   if (scn === 'many') {
     const groups = ['Watch', 'Fetch', 'Keep', 'Machine', 'Other'];
@@ -153,7 +168,9 @@ function build(scn: Scenario, tick: number): State {
     if (s.status === 'down') display.push(`${s.name} is not responding`);
     if (s.status === 'stopped') display.push(`${s.name} is stopped`);
   }
-  if (scn !== 'empty') {
+  if (scn === 'quiet') {
+    display.push('Netdata has 1 warning', `All ${services.length} services are up`);
+  } else if (scn !== 'empty') {
     display.push('Plex is playing to 2 screens');
     display.push(`qBittorrent is pulling ${(12.4 + wobble(2, tick, 3)).toFixed(1)} MB/s`);
     if (!display.some((x) => x.includes('not responding') || x.includes('stopped'))) display.push(`All ${services.length} services are up`);
