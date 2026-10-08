@@ -77,6 +77,7 @@ services:
       - DASHY_DOCKER_SECTION_NAME=Docker Apps
       - DASHY_EXPOSED_BY_DEFAULT=false # only include containers with explicit labels
       - DASHY_DOCKER_URL_HOST=${HOST_ADDR} # base URL used for links
+      - DASHY_DOCKER_URL_TEMPLATE={host}:{port} # HOST_ADDR already includes http://
       - TZ=${TZ}
     networks: [homelab]
     volumes:
@@ -117,7 +118,7 @@ services:
       - ${APPDATA}/plex:/config
     labels:
       - dashy=include
-      - dashy.port=32400
+      - dashy.port=32400/web # sync builds the link as host:port, so /web rides on the port
       - dashy.name=Plex
       - dashy.icon=png/plex.png
       - dashy.url=${HOST_ADDR}:32400/web
@@ -128,6 +129,11 @@ services:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
     environment:
+      # a service-level list replaces the anchor's list, so repeat the shared vars
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - UMASK=002
       - WEBUI_PORT=8080
     volumes:
       - ${APPDATA}/qbittorrent:/config
