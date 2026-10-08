@@ -32,8 +32,10 @@ export function createQbittorrent(): WidgetModule {
       headers: { ...originHeaders(ctx.baseUrl), 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams(creds).toString(),
     });
-    const sid = res.headers.getSetCookie().find((c) => c.startsWith('SID='));
-    if (res.status !== 200 || res.body.trim() !== 'Ok.' || !sid) throw new HttpError(403);
+    // Before 5.2: 200 "Ok." with an SID cookie. From 5.2: 204 with a QBT_SID_<port> cookie.
+    const sid = res.headers.getSetCookie().find((c) => /^(SID|QBT_SID_\d+)=/.test(c));
+    const accepted = res.status === 204 || (res.status === 200 && res.body.trim() === 'Ok.');
+    if (!accepted || !sid) throw new HttpError(403);
     session.cookie = sid.split(';')[0]!;
   }
 

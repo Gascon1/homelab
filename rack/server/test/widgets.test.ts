@@ -91,6 +91,22 @@ test('qBittorrent logs in on 403 and reuses the session cookie', async () => {
   }
 });
 
+test('qBittorrent 5.2 login (204 with a QBT_SID_<port> cookie) is accepted', async () => {
+  const upstream = await fakeServer((req, res) => {
+    if (req.url === '/api/v2/auth/login') res.writeHead(204, { 'Set-Cookie': 'QBT_SID_8080=abc; HttpOnly; path=/' }).end();
+    else if (req.headers.cookie !== 'QBT_SID_8080=abc') res.writeHead(403).end('Forbidden');
+    else if (req.url === '/api/v2/transfer/info') json(res, { dl_info_speed: 0, up_info_speed: 0 });
+    else json(res, []);
+  });
+  try {
+    const vars = { RACK_QBITTORRENT_USERNAME: 'me', RACK_QBITTORRENT_PASSWORD: 'pw' };
+    const out = await runWidget(createQbittorrent(), ctx(upstream.url, vars, 'qBittorrent'));
+    assert.equal(out.widget.ok, true);
+  } finally {
+    await upstream.close();
+  }
+});
+
 test('qBittorrent without credentials asks for both env vars when auth is required', async () => {
   const upstream = await fakeServer((_req, res) => res.writeHead(403).end());
   try {
