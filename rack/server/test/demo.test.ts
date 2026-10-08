@@ -5,11 +5,11 @@ import { MAX_SENTENCE } from '../src/display.ts';
 
 const START = Date.parse('2026-10-08T12:00:00Z');
 
-test('demo state has the ten real services in contract shape', () => {
+test('demo state has the nine real services in contract shape', () => {
   const state = demoState(START + 5000, START);
   const services = state.groups.flatMap((g) => g.services);
-  assert.deepEqual(state.groups.map((g) => g.name), ['Watch', 'Fetch', 'Keep', 'Machine']);
-  assert.equal(services.length, 10);
+  assert.deepEqual(state.groups.map((g) => g.name), ['Media', 'Downloads', 'Photos', 'System']);
+  assert.equal(services.length, 9);
   for (const s of services) {
     assert.equal(s.history.length, 40);
     assert.ok(['up', 'slow', 'down'].includes(s.status));

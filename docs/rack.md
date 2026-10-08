@@ -37,7 +37,7 @@ Run the same command after updating the repo to rebuild Rack.
 
 ### Service Discovery
 
-Rack lists a container only if it has the label `rack.enable=true`. For known apps (Plex, Seerr, Sonarr, Radarr, Prowlarr, qBittorrent, FlareSolverr, Immich, File Browser, Netdata) that label alone is enough: the name, group, icon, widget and path come from a built-in catalog.
+Rack lists a container only if it has the label `rack.enable=true`. For known apps (Plex, Seerr, Sonarr, Radarr, Prowlarr, qBittorrent, FlareSolverr, Immich, Netdata) that label alone is enough: the name, group, icon, widget and path come from a built-in catalog.
 
 ```yaml
 labels:
@@ -72,12 +72,12 @@ Settings are applied in this order: `rack.yml`, then labels, then the catalog.
 
 ```yaml
 title: Homelab
-groups: [Watch, Fetch, Keep, Machine] # display order
+groups: [Media, Downloads, Photos, System] # display order
 
 services: # keyed by service id
   plex:
     name: Plex
-    group: Watch
+    group: Media
     description: Films and TV
     icon: plex
     url: http://plex.lan
@@ -89,7 +89,7 @@ services: # keyed by service id
     hidden: false
   nas: # an id with no container is a static entry
     name: NAS
-    group: Machine
+    group: System
     url: http://10.0.0.5:5000
 
 bookmarks:

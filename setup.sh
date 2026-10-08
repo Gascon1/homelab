@@ -121,12 +121,12 @@ if [[ ! -f "${RACK_CONFIG}" ]]; then
     cat > "${RACK_CONFIG}" << 'EOF'
 title: Homelab
 
-# groups: [Watch, Fetch, Keep, Machine]   # display order
+# groups: [Media, Downloads, Photos, System] # display order
 #
 # services:                               # keyed by service id
 #   plex:
 #     name: Plex
-#     group: Watch
+#     group: Media
 #     description: Films and TV
 #     icon: plex
 #     url: http://plex.lan
@@ -136,7 +136,7 @@ title: Homelab
 #     hidden: false
 #   nas:                                  # an id with no container = static entry
 #     name: NAS
-#     group: Machine
+#     group: System
 #     url: http://10.0.0.5:5000
 #
 # bookmarks:

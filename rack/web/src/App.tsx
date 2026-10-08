@@ -298,7 +298,7 @@ export function App() {
 
   const empty = !!state && flat.length === 0;
 
-  /* Build the sections: groups (Machine also carries the host meters), then bookmark groups. */
+  /* Build the sections: groups (System, or the older Machine, also carries the host meters), then bookmark groups. */
   const bookmarkGroups = useMemo(() => {
     const m = new Map<string, { name: string; url: string }[]>();
     for (const b of state?.bookmarks ?? []) {
@@ -311,8 +311,11 @@ export function App() {
   const plan = useMemo(() => {
     if (!state) return { sections: [], links: 0 };
     const host = hostTiles(state.host);
-    const groups = state.groups.map((g) => ({ name: g.name, svcs: g.services, host: g.name === 'Machine' ? host : [] }));
-    if (host.length && !groups.some((g) => g.name === 'Machine')) groups.push({ name: 'Machine', svcs: [], host });
+    /* The host meters live in the System group; configs from before the rename say Machine. */
+    const isHostGroup = (name: string) => name === 'System' || name === 'Machine';
+    const hostName = state.groups.find((g) => g.name === 'System')?.name ?? state.groups.find((g) => g.name === 'Machine')?.name;
+    const groups = state.groups.map((g) => ({ name: g.name, svcs: g.services, host: g.name === hostName ? host : [] }));
+    if (host.length && !groups.some((g) => isHostGroup(g.name))) groups.push({ name: 'System', svcs: [], host });
     const prepared = groups.map((g) => {
       const few = g.svcs.length + g.host.length <= 2;
       const nodes: TileNode[] = [
@@ -322,7 +325,8 @@ export function App() {
       ];
       return { ...g, nodes, area: nodes.reduce((n, t) => n + t.base, 0) };
     });
-    const want = prepared.map((g) => (units === 2 ? 2 : sectionWidth(g.area, units)));
+    /* A group with one tile gets two columns at 8, so the second row is Photos 2 + System 4 + Links 2. */
+    const want = prepared.map((g) => (units === 2 ? 2 : units === 8 && g.area === 1 ? 2 : sectionWidth(g.area, units)));
     if (bookmarkGroups.length) want.push(2);
     const spans = pack(want, units, true);
     const sections = prepared.map((g, i) => {

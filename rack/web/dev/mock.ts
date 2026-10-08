@@ -56,46 +56,45 @@ function defs(scn: Scenario): Def[] {
   const down = scn === 'down';
   return [
     {
-      id: 'plex', name: 'Plex', group: 'Watch', icon: '/api/icon/plex', port: 32400, path: '/web', desc: 'Films and TV', latency: 38,
+      id: 'plex', name: 'Plex', group: 'Media', icon: '/api/icon/plex', port: 32400, path: '/web', desc: 'Films and TV', latency: 38,
       widget: (t) => (setup ? missing('Plex', 'RACK_PLEX_TOKEN') : ok(
         [{ label: t % 8 < 6 ? 'streams' : 'stream', value: t % 8 < 6 ? '2' : '1', tone: 'normal' }, { label: 'transcoding', value: '1', tone: 'normal' }],
         { label: 'Bandwidth', value: 0.45 + wobble(1, t, 0.15) }, 'plex')),
     },
     {
-      id: 'seerr', name: 'Seerr', group: 'Watch', icon: '/api/icon/seerr', port: 5055, desc: 'Requests', latency: 52,
+      id: 'seerr', name: 'Seerr', group: 'Media', icon: '/api/icon/seerr', port: 5055, desc: 'Requests', latency: 52,
       widget: () => (setup ? missing('Seerr', 'RACK_SEERR_API_KEY') : ok([{ label: 'waiting for approval', value: '3', tone: 'warn' }], null, 'seerr')),
     },
     {
-      id: 'sonarr', name: 'Sonarr', group: 'Fetch', icon: '/api/icon/sonarr', port: 8989, desc: 'TV shows', latency: 41,
+      id: 'sonarr', name: 'Sonarr', group: 'Downloads', icon: '/api/icon/sonarr', port: 8989, desc: 'TV shows', latency: 41,
       widget: () => (setup ? missing('Sonarr', 'RACK_SONARR_API_KEY') : ok([{ label: 'in queue', value: '4', tone: 'normal' }, { label: 'airing today', value: '2', tone: 'normal' }], null, 'sonarr')),
     },
     {
-      id: 'radarr', name: 'Radarr', group: 'Fetch', icon: '/api/icon/radarr', port: 7878, desc: 'Films',
+      id: 'radarr', name: 'Radarr', group: 'Downloads', icon: '/api/icon/radarr', port: 7878, desc: 'Films',
       status: down ? 'stopped' : 'up', sinceMin: 95, latency: 36,
       widget: () => (setup ? missing('Radarr', 'RACK_RADARR_API_KEY') : ok([{ label: 'in queue', value: '1', tone: 'normal' }, { label: 'missing', value: '12', tone: 'warn' }], null, 'radarr')),
     },
     {
-      id: 'prowlarr', name: 'Prowlarr', group: 'Fetch', icon: '/api/icon/prowlarr', port: 9696, desc: 'Indexers', latency: 29,
+      id: 'prowlarr', name: 'Prowlarr', group: 'Downloads', icon: '/api/icon/prowlarr', port: 9696, desc: 'Indexers', latency: 29,
       widget: () => (setup ? missing('Prowlarr', 'RACK_PROWLARR_API_KEY') : ok([{ label: 'indexers', value: '7', tone: 'normal' }, { label: 'failing', value: '1', tone: 'bad' }], null, 'prowlarr')),
     },
     {
-      id: 'qbittorrent', name: 'qBittorrent', group: 'Fetch', icon: '/api/icon/qbittorrent', port: 8080, desc: 'Downloads', latency: 19,
+      id: 'qbittorrent', name: 'qBittorrent', group: 'Downloads', icon: '/api/icon/qbittorrent', port: 8080, desc: 'Downloads', latency: 19,
       widget: (t) => (setup ? missing('qBittorrent', 'RACK_QBITTORRENT_PASSWORD') : ok(
         [{ label: 'down', value: `${(12.4 + wobble(2, t, 3)).toFixed(1)} MB/s`, tone: 'normal' }, { label: 'up', value: '1.1 MB/s', tone: 'normal' }],
         { label: 'Download speed', value: Math.min(1, Math.max(0.05, 0.6 + wobble(2, t, 0.3))) }, 'qbittorrent')),
     },
     {
-      id: 'flaresolverr', name: 'FlareSolverr', group: 'Fetch', icon: '/api/icon/flaresolverr', port: 8191, desc: 'Cloudflare bypass for indexers',
+      id: 'flaresolverr', name: 'FlareSolverr', group: 'Downloads', icon: '/api/icon/flaresolverr', port: 8191, desc: 'Cloudflare bypass for indexers',
       status: down ? 'down' : 'up', sinceMin: 17, latency: down ? null : 88, widget: () => null,
     },
     {
-      id: 'immich', name: 'Immich', group: 'Keep', icon: '/api/icon/immich', port: 2283, desc: 'Photos', latency: 63,
+      id: 'immich', name: 'Immich', group: 'Photos', icon: '/api/icon/immich', port: 2283, desc: 'Photos', latency: 63,
       status: scn === 'many' ? 'slow' : 'up',
       widget: () => (setup ? missing('Immich', 'RACK_IMMICH_API_KEY') : ok([{ label: 'photos', value: '48,212', tone: 'normal' }, { label: 'videos', value: '1,904', tone: 'normal' }], null, 'immich')),
     },
-    { id: 'filebrowser', name: 'File Browser', group: 'Keep', icon: '/api/icon/filebrowser', port: 8081, desc: 'Files on the server', latency: 14, widget: () => null },
     {
-      id: 'netdata', name: 'Netdata', group: 'Machine', icon: '/api/icon/missing-icon', port: 19999, desc: 'Live graphs', latency: 22,
+      id: 'netdata', name: 'Netdata', group: 'System', icon: '/api/icon/missing-icon', port: 19999, desc: 'Live graphs', latency: 22,
       widget: (t) => (setup ? missing('Netdata', 'nothing') : ok([{ label: 'alerts', value: '0', tone: 'good' }, { label: 'cpu', value: `${Math.round(31 + wobble(3, t, 8))}%`, tone: 'normal' }], null, 'netdata')),
     },
   ];
@@ -126,7 +125,7 @@ function build(scn: Scenario, tick: number): State {
   }
   if (scn === 'empty') list = [];
   if (scn === 'many') {
-    const groups = ['Watch', 'Fetch', 'Keep', 'Machine', 'Other'];
+    const groups = ['Media', 'Downloads', 'Photos', 'System', 'Other'];
     extraNames.forEach((n, i) => {
       list.push({
         id: n.toLowerCase().replace(/\W+/g, '-'), name: n, group: groups[i % 5]!, icon: i % 4 === 0 ? null : `/api/icon/${n.toLowerCase().replace(/\W+/g, '-')}`,
@@ -145,7 +144,7 @@ function build(scn: Scenario, tick: number): State {
       description: d.desc ?? null,
       group: d.group,
       icon: d.icon,
-      url: d.id === 'filebrowser' ? `http://files.lan/` : null,
+      url: null,
       port: d.port,
       path: d.path ?? null,
       status,
@@ -157,7 +156,7 @@ function build(scn: Scenario, tick: number): State {
     };
   });
 
-  const order = ['Watch', 'Fetch', 'Keep', 'Machine'];
+  const order = ['Media', 'Downloads', 'Photos', 'System'];
   const names = [...new Set(services.map((s) => s.group))].sort((a, b) => {
     const ia = order.indexOf(a), ib = order.indexOf(b);
     return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b);

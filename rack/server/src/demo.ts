@@ -26,7 +26,6 @@ const APPS: DemoApp[] = [
   { id: 'qbittorrent', image: 'lscr.io/linuxserver/qbittorrent:latest', port: 8080, baseLatency: 21 },
   { id: 'flaresolverr', image: 'ghcr.io/flaresolverr/flaresolverr:latest', port: 8191, baseLatency: 17 },
   { id: 'immich-server', image: 'ghcr.io/immich-app/immich-server:release', port: 2283, baseLatency: 55 },
-  { id: 'filebrowser', image: 'filebrowser/filebrowser:latest', port: 8181, baseLatency: 12 },
   { id: 'netdata', image: 'netdata/netdata:stable', port: 19999, baseLatency: 48 },
 ];
 

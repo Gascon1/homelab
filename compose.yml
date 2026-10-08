@@ -274,8 +274,6 @@ services:
       - ${APPDATA}/filebrowser/database:/database
     ports:
       - '8181:80'
-    labels:
-      - rack.enable=true
 volumes:
   model-cache:
 

@@ -20,7 +20,7 @@ test('rack.enable alone is enough: the catalog fills in the rest', () => {
     noConfig,
   );
   assert.equal(plex!.name, 'Plex');
-  assert.equal(plex!.group, 'Watch');
+  assert.equal(plex!.group, 'Media');
   assert.equal(plex!.path, '/web');
   assert.equal(plex!.widget, 'plex');
   assert.equal(plex!.port, 32400);
@@ -68,7 +68,7 @@ test('unknown apps get a title-cased name, group Other and their id as icon', ()
 });
 
 test('containers without the label are ignored; rack.yml entries without a container are static', () => {
-  const { config } = validateConfig({ services: { nas: { name: 'NAS', group: 'Machine', url: 'http://10.0.0.5:5000' } } });
+  const { config } = validateConfig({ services: { nas: { name: 'NAS', group: 'System', url: 'http://10.0.0.5:5000' } } });
   const result = resolveServices([container({ name: 'hidden-thing' })], config);
   assert.deepEqual(result.map((s) => s.id), ['nas']);
   assert.equal(result[0]!.container, null);
@@ -109,8 +109,8 @@ test('derivePorts: explicit port, app default, and nothing published', () => {
   assert.deepEqual(derivePorts([], null, null), { publicPort: null, privatePort: null });
 });
 
-test('group order: configured first, then Watch, Fetch, Keep, Machine, then alphabetical', () => {
-  const names = ['Zeta', 'Machine', 'Alpha', 'Watch', 'Keep', 'Fetch'];
-  assert.deepEqual([...names].sort(compareGroups([])), ['Watch', 'Fetch', 'Keep', 'Machine', 'Alpha', 'Zeta']);
-  assert.deepEqual([...names].sort(compareGroups(['Keep', 'Zeta'])), ['Keep', 'Zeta', 'Watch', 'Fetch', 'Machine', 'Alpha']);
+test('group order: configured first, then Media, Downloads, Photos, System, then alphabetical', () => {
+  const names = ['Zeta', 'System', 'Alpha', 'Media', 'Photos', 'Downloads'];
+  assert.deepEqual([...names].sort(compareGroups([])), ['Media', 'Downloads', 'Photos', 'System', 'Alpha', 'Zeta']);
+  assert.deepEqual([...names].sort(compareGroups(['Photos', 'Zeta'])), ['Photos', 'Zeta', 'Media', 'Downloads', 'System', 'Alpha']);
 });

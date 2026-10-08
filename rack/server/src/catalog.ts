@@ -11,22 +11,22 @@ export interface CatalogEntry {
 }
 
 export const CATALOG: CatalogEntry[] = [
-  { match: ['plex'], name: 'Plex', group: 'Watch', icon: 'plex', widget: 'plex', path: '/web', port: 32400 },
-  { match: ['seerr', 'overseerr', 'jellyseerr'], name: 'Seerr', group: 'Watch', icon: 'seerr', widget: 'seerr', port: 5055 },
-  { match: ['sonarr'], name: 'Sonarr', group: 'Fetch', icon: 'sonarr', widget: 'sonarr', port: 8989 },
-  { match: ['radarr'], name: 'Radarr', group: 'Fetch', icon: 'radarr', widget: 'radarr', port: 7878 },
-  { match: ['prowlarr'], name: 'Prowlarr', group: 'Fetch', icon: 'prowlarr', widget: 'prowlarr', port: 9696 },
-  { match: ['qbittorrent'], name: 'qBittorrent', group: 'Fetch', icon: 'qbittorrent', widget: 'qbittorrent', port: 8080 },
-  { match: ['flaresolverr'], name: 'FlareSolverr', group: 'Fetch', icon: 'flaresolverr', widget: 'flaresolverr', port: 8191 },
-  { match: ['immich-server'], name: 'Immich', group: 'Keep', icon: 'immich', widget: 'immich', port: 2283 },
-  { match: ['filebrowser'], name: 'File Browser', group: 'Keep', icon: 'filebrowser', widget: null, port: 80 },
-  { match: ['netdata'], name: 'Netdata', group: 'Machine', icon: 'netdata', widget: 'netdata', port: 19999 },
+  { match: ['plex'], name: 'Plex', group: 'Media', icon: 'plex', widget: 'plex', path: '/web', port: 32400 },
+  { match: ['seerr', 'overseerr', 'jellyseerr'], name: 'Seerr', group: 'Media', icon: 'seerr', widget: 'seerr', port: 5055 },
+  { match: ['sonarr'], name: 'Sonarr', group: 'Downloads', icon: 'sonarr', widget: 'sonarr', port: 8989 },
+  { match: ['radarr'], name: 'Radarr', group: 'Downloads', icon: 'radarr', widget: 'radarr', port: 7878 },
+  { match: ['prowlarr'], name: 'Prowlarr', group: 'Downloads', icon: 'prowlarr', widget: 'prowlarr', port: 9696 },
+  { match: ['qbittorrent'], name: 'qBittorrent', group: 'Downloads', icon: 'qbittorrent', widget: 'qbittorrent', port: 8080 },
+  { match: ['flaresolverr'], name: 'FlareSolverr', group: 'Downloads', icon: 'flaresolverr', widget: 'flaresolverr', port: 8191 },
+  { match: ['immich-server'], name: 'Immich', group: 'Photos', icon: 'immich', widget: 'immich', port: 2283 },
+  { match: ['filebrowser'], name: 'File Browser', group: 'Files', icon: 'filebrowser', widget: null, port: 80 },
+  { match: ['netdata'], name: 'Netdata', group: 'System', icon: 'netdata', widget: 'netdata', port: 19999 },
 ];
 
 /** Used when an icon slug has no image on the CDN. */
 export const ICON_FALLBACKS: Record<string, string> = { seerr: 'overseerr' };
 
-export const DEFAULT_GROUP_ORDER = ['Watch', 'Fetch', 'Keep', 'Machine'];
+export const DEFAULT_GROUP_ORDER = ['Media', 'Downloads', 'Photos', 'System'];
 
 /** "ghcr.io/immich-app/immich-server:release@sha256:..." becomes "immich-server". */
 export function imageBaseName(image: string): string {

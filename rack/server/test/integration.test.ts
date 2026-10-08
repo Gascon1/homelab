@@ -21,7 +21,7 @@ test('end to end: fake Docker + fake upstreams produce the expected /api/state',
   const web = join(dir, 'web');
   await mkdir(web);
   await writeFile(join(web, 'index.html'), '<html>rack</html>');
-  await writeFile(join(dir, 'rack.yml'), 'title: Test Lab\nservices:\n  nas:\n    name: NAS\n    group: Machine\n    url: http://127.0.0.1:1\n');
+  await writeFile(join(dir, 'rack.yml'), 'title: Test Lab\nservices:\n  nas:\n    name: NAS\n    group: System\n    url: http://127.0.0.1:1\n');
 
   const plexUpstream = await fakeServer((req, res) => {
     if (req.url === '/status/sessions') json(res, { MediaContainer: { size: 1, Metadata: [{}] } });
@@ -64,7 +64,7 @@ test('end to end: fake Docker + fake upstreams produce the expected /api/state',
     const state = (await (await fetch(`${base_}/api/state`)).json()) as State;
 
     assert.equal(state.title, 'Test Lab');
-    assert.deepEqual(state.groups.map((g) => g.name), ['Watch', 'Fetch', 'Machine']);
+    assert.deepEqual(state.groups.map((g) => g.name), ['Media', 'Downloads', 'System']);
     const all = Object.fromEntries(state.groups.flatMap((g) => g.services).map((s) => [s.id, s]));
     assert.deepEqual(Object.keys(all).sort(), ['flaresolverr', 'nas', 'plex', 'radarr', 'seerr']);
 
@@ -146,7 +146,7 @@ test('/api/events sends an initial state event straight away', async () => {
     assert.equal(first.type, 'text/event-stream');
     assert.match(first.data, /^event: state\ndata: \{.*\}\n\n$/s);
     const payload = JSON.parse(first.data.split('\n')[1]!.slice('data: '.length)) as State;
-    assert.equal(payload.groups.flatMap((g) => g.services).length, 10);
+    assert.equal(payload.groups.flatMap((g) => g.services).length, 9);
   } finally {
     await app.close();
   }
