@@ -11,3 +11,7 @@ appdata/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Rack build output
+rack/**/node_modules
+rack/**/dist

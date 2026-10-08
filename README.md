@@ -13,7 +13,7 @@ A Docker Compose stack for running a complete home media server with automated d
 | [qBittorrent](docs/qbittorrent.md)  | 8080  | Torrent download client        |
 | [Seerr](docs/seerr.md)              | 5055  | Media request portal           |
 | [Immich](docs/immich.md)            | 2283  | Photo & video management       |
-| [Dashy](docs/dashy.md)              | 4000  | Dashboard for all services     |
+| [Rack](docs/rack.md)                | 4000  | Dashboard for all services     |
 | [Netdata](docs/netdata.md)          | 19999 | System monitoring              |
 | [File Browser](docs/filebrowser.md) | 8181  | Web-based file manager         |
 
@@ -30,8 +30,8 @@ cp .env.example .env
 # Run setup script to create directories
 ./setup.sh
 
-# Start services
-docker compose up -d
+# Start services (Rack is built locally, so --build is needed the first time)
+docker compose up -d --build
 ```
 
 ## Environment Variables
@@ -58,6 +58,11 @@ DB_DATA_LOCATION=./appdata/immich/postgres
 DB_PASSWORD=your-secure-password
 DB_USERNAME=postgres
 DB_DATABASE_NAME=immich
+
+# Rack (optional, see docs/rack.md)
+RACK_IMMICH_API_KEY=
+RACK_QBITTORRENT_USERNAME=
+RACK_QBITTORRENT_PASSWORD=
 ```
 
 ## Data Directory Structure
@@ -125,7 +130,7 @@ For advanced configuration, check [TRaSH Guides](https://trash-guides.info/) - c
 
 ```bash
 # Start all services
-docker compose up -d
+docker compose up -d --build
 
 # Stop all services
 docker compose down
@@ -139,8 +144,12 @@ docker compose logs -f radarr
 # Restart a service
 docker compose restart sonarr
 
-# Update all containers
-docker compose pull && docker compose up -d
+# Update all containers (--build also rebuilds Rack)
+docker compose pull && docker compose up -d --build
+
+# One-time migration from Dashy: removes the old dashy containers
+# (appdata/dashy can be deleted afterwards)
+docker compose up -d --build --remove-orphans
 
 # Check container status
 docker compose ps

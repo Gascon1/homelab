@@ -38,59 +38,49 @@ services:
       interval: 15s
       retries: 3
     labels:
-      - dashy=include
+      - rack.enable=true
     restart: unless-stopped
 
-  dashy:
-    image: lissy93/dashy:latest
-    container_name: dashy
+  rack:
+    build: ./rack
+    pull_policy: build
+    container_name: rack
     environment:
-      - NODE_ENV=production
       - TZ=${TZ}
+      - PORT=4000
+      - RACK_IMMICH_API_KEY=${RACK_IMMICH_API_KEY:-}
+      - RACK_QBITTORRENT_USERNAME=${RACK_QBITTORRENT_USERNAME:-}
+      - RACK_QBITTORRENT_PASSWORD=${RACK_QBITTORRENT_PASSWORD:-}
+      # Normally discovered automatically from the read-only config mounts below
+      - RACK_PLEX_TOKEN=${RACK_PLEX_TOKEN:-}
+      - RACK_SONARR_API_KEY=${RACK_SONARR_API_KEY:-}
+      - RACK_RADARR_API_KEY=${RACK_RADARR_API_KEY:-}
+      - RACK_PROWLARR_API_KEY=${RACK_PROWLARR_API_KEY:-}
+      - RACK_SEERR_API_KEY=${RACK_SEERR_API_KEY:-}
     networks: [homelab]
     ports:
-      - '4000:8080' # Open at http://<server>:4000
-    volumes:
-      - ${APPDATA}/dashy/conf.yml:/app/user-data/conf.yml
-      - ${APPDATA}/dashy/assets:/app/public
-    healthcheck:
-      test: ['CMD', 'node', '/app/services/healthcheck']
-      interval: 90s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: '10m'
-        max-file: '3'
-    labels:
-      - dashy.ignore=true
-
-  dashy-docker-sync:
-    image: ghcr.io/jeppestaerk/dashy-docker-sync:latest
-    container_name: dashy-docker-sync
-    depends_on: [dashy]
-    environment:
-      - DASHY_CONFIG_PATH=/config/conf.yml
-      - DASHY_DOCKER_SECTION_NAME=Docker Apps
-      - DASHY_EXPOSED_BY_DEFAULT=false # only include containers with explicit labels
-      - DASHY_DOCKER_URL_HOST=${HOST_ADDR} # base URL used for links
-      - DASHY_DOCKER_URL_TEMPLATE={host}:{port} # HOST_ADDR already includes http://
-      - TZ=${TZ}
-    networks: [homelab]
+      - '4000:4000' # Open at http://<server>:4000
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ${APPDATA}/dashy/conf.yml:/config/conf.yml
+      - ${APPDATA}/rack:/config
+      - ${APPDATA}/sonarr:/appdata/sonarr:ro
+      - ${APPDATA}/radarr:/appdata/radarr:ro
+      - ${APPDATA}/prowlarr:/appdata/prowlarr:ro
+      - ${APPDATA}/seerr:/appdata/seerr:ro
+      - ${APPDATA}/plex:/appdata/plex:ro
+      - ${DATA_DIR}:/mnt/data:ro
+    healthcheck:
+      test: ['CMD', 'node', '/app/server.mjs', '--healthcheck']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
     logging:
       driver: json-file
       options:
         max-size: '10m'
         max-file: '3'
-    labels:
-      - dashy.ignore=true
 
   plex:
     image: lscr.io/linuxserver/plex:latest
@@ -117,11 +107,7 @@ services:
       - ${DATA_DIR}:/data
       - ${APPDATA}/plex:/config
     labels:
-      - dashy=include
-      - dashy.port=32400/web # sync builds the link as host:port, so /web rides on the port
-      - dashy.name=Plex
-      - dashy.icon=png/plex.png
-      - dashy.url=${HOST_ADDR}:32400/web
+      - rack.enable=true
     restart: unless-stopped
 
   qbittorrent:
@@ -143,9 +129,8 @@ services:
       - '6881:6881'
       - '6881:6881/udp'
     labels:
-      - dashy=include # optional if you keep EXPOSED_BY_DEFAULT=true
-      - dashy.port=8080 # <-- force the Web UI port for Dashy
-      - dashy.name=qBittorrent
+      - rack.enable=true
+      - rack.port=8080 # Web UI; the default (lowest published port) would pick 6881
     stop_grace_period: 30s # Let qB save state cleanly
 
   radarr:
@@ -158,7 +143,7 @@ services:
     ports:
       - '7878:7878'
     labels:
-      - dashy=include
+      - rack.enable=true
 
   sonarr:
     <<: *ls-common
@@ -170,7 +155,7 @@ services:
     ports:
       - '8989:8989'
     labels:
-      - dashy=include
+      - rack.enable=true
 
   prowlarr:
     <<: *ls-common
@@ -181,7 +166,7 @@ services:
     ports:
       - '9696:9696'
     labels:
-      - dashy=include
+      - rack.enable=true
 
   flaresolverr:
     <<: *ls-common
@@ -195,9 +180,7 @@ services:
     ports:
       - '8191:8191'
     labels:
-      - dashy=include
-      - dashy.port=8191
-      - dashy.name=FlareSolverr
+      - rack.enable=true
 
   immich-server:
     container_name: immich_server
@@ -214,11 +197,7 @@ services:
     restart: always
     networks: [homelab]
     labels:
-      - dashy=include
-      - dashy.name=Immich
-      - dashy.port=2283
-      - dashy.url=${HOST_ADDR}:2283
-      - dashy.icon=https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/immich.png
+      - rack.enable=true
 
   immich-machine-learning:
     container_name: immich_machine_learning
@@ -228,8 +207,6 @@ services:
       - model-cache:/cache
     restart: always
     networks: [homelab]
-    labels:
-      - dashy.ignore=true
 
   redis:
     container_name: immich_redis
@@ -238,8 +215,6 @@ services:
       test: ['CMD-SHELL', 'redis-cli ping || exit 1']
     restart: always
     networks: [homelab]
-    labels:
-      - dashy.ignore=true
 
   database:
     container_name: immich_postgres
@@ -255,8 +230,6 @@ services:
     shm_size: 128mb
     restart: always
     networks: [homelab]
-    labels:
-      - dashy.ignore=true
 
   netdata:
     image: netdata/netdata:stable
@@ -285,11 +258,7 @@ services:
       - /var/log:/host/var/log:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
     labels:
-      - dashy=include
-      - dashy.port=19999
-      - dashy.name=Netdata
-      - dashy.icon=png/netdata.png
-      - dashy.url=${HOST_ADDR}:19999
+      - rack.enable=true
 
   filebrowser:
     <<: *ls-common
@@ -306,10 +275,7 @@ services:
     ports:
       - '8181:80'
     labels:
-      - dashy=include
-      - dashy.name=File Browser
-      - dashy.port=8181
-      - dashy.url=${HOST_ADDR}:8181
+      - rack.enable=true
 volumes:
   model-cache:
 

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>
+    .c{fill:#6B4226}.f{fill:#E6E8E9}.s{fill:#C9CDD0}
+    @media (prefers-color-scheme:dark){.c{fill:#8a5a38}.f{fill:#2a3035}.s{fill:#14171a}}
+  </style>
+  <rect class="c" width="32" height="32" rx="5"/>
+  <rect class="s" x="4" y="3" width="24" height="26"/>
+  <rect class="f" x="4" y="4" width="24" height="7"/>
+  <rect class="f" x="4" y="12.5" width="24" height="7"/>
+  <rect class="f" x="4" y="21" width="24" height="7"/>
+  <circle cx="8.5" cy="7.5" r="2" fill="#1e9e4a"/>
+  <circle cx="8.5" cy="16" r="2" fill="#1e9e4a"/>
+  <circle cx="8.5" cy="24.5" r="2" fill="#7fffe1" stroke="#0b1513" stroke-width=".8"/>
+  <rect x="13" y="6.5" width="11" height="2" fill="#7a838a"/>
+  <rect x="13" y="15" width="8" height="2" fill="#7a838a"/>
+  <rect x="13" y="23.5" width="13" height="2" fill="#7a838a"/>
+</svg>

@@ -1,0 +1,11 @@
+{
+  "name": "Rack",
+  "short_name": "Rack",
+  "description": "Everything running on the home server, and whether it is healthy.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#C9CDD0",
+  "theme_color": "#6B4226",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

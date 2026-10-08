@@ -56,8 +56,7 @@ APPDATA_DIRS=(
     "${APPDATA}/seerr"
 
     # Dashboard
-    "${APPDATA}/dashy"
-    "${APPDATA}/dashy/assets"
+    "${APPDATA}/rack"
 
     # Monitoring
     "${APPDATA}/netdata/config"
@@ -113,32 +112,40 @@ else
 fi
 
 # =============================================================================
-# Create default Dashy config if not exists
+# Create default Rack config if not exists
 # =============================================================================
 
-DASHY_CONFIG="${APPDATA}/dashy/conf.yml"
-if [[ ! -f "${DASHY_CONFIG}" ]]; then
-    log_info "Creating default Dashy configuration..."
-    cat > "${DASHY_CONFIG}" << 'EOF'
-pageInfo:
-  title: Homelab
-  description: Home Server Dashboard
-  navLinks: []
+RACK_CONFIG="${APPDATA}/rack/rack.yml"
+if [[ ! -f "${RACK_CONFIG}" ]]; then
+    log_info "Creating default Rack configuration..."
+    cat > "${RACK_CONFIG}" << 'EOF'
+title: Homelab
 
-appConfig:
-  theme: nord-frost
-  layout: auto
-  iconSize: medium
-  language: en
-
-sections:
-  - name: Docker Apps
-    displayData:
-      collapsed: false
-      rows: 2
-    items: []
+# groups: [Watch, Fetch, Keep, Machine]   # display order
+#
+# services:                               # keyed by service id
+#   plex:
+#     name: Plex
+#     group: Watch
+#     description: Films and TV
+#     icon: plex
+#     url: http://plex.lan
+#     port: 32400
+#     path: /web
+#     order: 1
+#     hidden: false
+#   nas:                                  # an id with no container = static entry
+#     name: NAS
+#     group: Machine
+#     url: http://10.0.0.5:5000
+#
+# bookmarks:
+#   - { name: Router, url: http://10.0.0.1, group: Network }
+#
+# disks:
+#   - { path: /mnt/data, label: media }
 EOF
-    log_info "Created: ${DASHY_CONFIG}"
+    log_info "Created: ${RACK_CONFIG}"
 fi
 
 # =============================================================================
@@ -185,6 +192,24 @@ DB_DATA_LOCATION=./appdata/immich/postgres
 DB_PASSWORD=change-me-to-a-secure-password
 DB_USERNAME=postgres
 DB_DATABASE_NAME=immich
+
+# =============================================================================
+# Rack (Dashboard) - all optional
+# =============================================================================
+
+# Immich API key: Immich > Account Settings > API Keys > New API Key
+RACK_IMMICH_API_KEY=
+
+# qBittorrent Web UI login: Tools > Options > Web UI > Authentication
+RACK_QBITTORRENT_USERNAME=
+RACK_QBITTORRENT_PASSWORD=
+
+# Normally discovered automatically from each app's config; set only to override
+# RACK_PLEX_TOKEN=
+# RACK_SONARR_API_KEY=
+# RACK_RADARR_API_KEY=
+# RACK_PROWLARR_API_KEY=
+# RACK_SEERR_API_KEY=
 EOF
     log_info "Created: ${ENV_EXAMPLE}"
 fi
@@ -199,5 +224,5 @@ echo ""
 echo "Next steps:"
 echo "  1. Copy .env.example to .env and configure values"
 echo "  2. Review and adjust paths in .env"
-echo "  3. Run: docker compose up -d"
+echo "  3. Run: docker compose up -d --build"
 echo ""
