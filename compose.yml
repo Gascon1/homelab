@@ -28,7 +28,7 @@ services:
       - TZ=${TZ}
       - PORT=5055 #optional
     ports:
-      - 5055:5055
+      - ${BIND_ADDR:-0.0.0.0}:5055:5055
     volumes:
       - ${APPDATA}/seerr:/app/config
     healthcheck:
@@ -59,7 +59,7 @@ services:
       - RACK_SEERR_API_KEY=${RACK_SEERR_API_KEY:-}
     networks: [homelab]
     ports:
-      - '4000:4000' # Open at http://<server>:4000
+      - '${BIND_ADDR:-0.0.0.0}:4000:4000' # Open at http://<server>:4000
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ${APPDATA}/rack:/config
@@ -86,7 +86,8 @@ services:
     image: lscr.io/linuxserver/plex:latest
     container_name: plex
     networks: [homelab]
-    # Publish only what you need to reach from LAN
+    # Publish only what you need to reach from LAN. Plex ports are not bound to
+    # BIND_ADDR: clients and DLNA/GDM discovery need them on all interfaces.
     ports:
       - '32400:32400/tcp' # Plex web/API
       # If you actually use DLNA/auto-discovery, also add these:
@@ -125,7 +126,8 @@ services:
       - ${APPDATA}/qbittorrent:/config
       - ${DATA_DIR}/torrents:/data/torrents
     ports:
-      - '8080:8080'
+      - '${BIND_ADDR:-0.0.0.0}:8080:8080'
+      # Torrent ports stay on all interfaces: peers must reach them
       - '6881:6881'
       - '6881:6881/udp'
     labels:
@@ -141,7 +143,7 @@ services:
       - ${APPDATA}/radarr:/config
       - ${DATA_DIR}:/data
     ports:
-      - '7878:7878'
+      - '${BIND_ADDR:-0.0.0.0}:7878:7878'
     labels:
       - rack.enable=true
 
@@ -153,7 +155,7 @@ services:
       - ${APPDATA}/sonarr:/config
       - ${DATA_DIR}:/data
     ports:
-      - '8989:8989'
+      - '${BIND_ADDR:-0.0.0.0}:8989:8989'
     labels:
       - rack.enable=true
 
@@ -164,7 +166,7 @@ services:
     volumes:
       - ${APPDATA}/prowlarr:/config
     ports:
-      - '9696:9696'
+      - '${BIND_ADDR:-0.0.0.0}:9696:9696'
     labels:
       - rack.enable=true
 
@@ -177,15 +179,20 @@ services:
       - LOG_HTML=${LOG_HTML:-false}
       - CAPTCHA_SOLVER=${CAPTCHA_SOLVER:-none}
       - TZ=${TZ}
-    ports:
-      - '8191:8191'
+    # No published port on purpose: FlareSolverr is an unauthenticated headless-browser
+    # proxy. Prowlarr reaches it at http://flaresolverr:8191 over the homelab network.
     labels:
       - rack.enable=true
 
   immich-server:
     container_name: immich_server
     image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
-    env_file: .env
+    environment:
+      # Only what Immich needs (env_file: .env would leak RACK_* API keys into the container)
+      - TZ=${TZ}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_DATABASE_NAME=${DB_DATABASE_NAME}
     volumes:
       - ${UPLOAD_LOCATION}:/data
       - /etc/localtime:/etc/localtime:ro
@@ -193,7 +200,7 @@ services:
       - redis
       - database
     ports:
-      - '2283:2283' # or "8088:2283" if you prefer that external port
+      - '${BIND_ADDR:-0.0.0.0}:2283:2283' # or "8088:2283" if you prefer that external port
     restart: always
     networks: [homelab]
     labels:
@@ -202,7 +209,8 @@ services:
   immich-machine-learning:
     container_name: immich_machine_learning
     image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}
-    env_file: .env
+    environment:
+      - TZ=${TZ}
     volumes:
       - model-cache:/cache
     restart: always
@@ -238,7 +246,7 @@ services:
     pid: host
     networks: [homelab]
     ports:
-      - '19999:19999/tcp'
+      - '${BIND_ADDR:-0.0.0.0}:19999:19999/tcp'
     restart: unless-stopped
     cap_add:
       - SYS_PTRACE
@@ -246,9 +254,9 @@ services:
     security_opt:
       - apparmor:unconfined
     volumes:
-      - ./appdata/netdata/config:/etc/netdata
-      - ./appdata/netdata/lib:/var/lib/netdata
-      - ./appdata/netdata/cache:/var/cache/netdata
+      - ${APPDATA}/netdata/config:/etc/netdata
+      - ${APPDATA}/netdata/lib:/var/lib/netdata
+      - ${APPDATA}/netdata/cache:/var/cache/netdata
       - /:/host/root:ro,rslave
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
@@ -273,7 +281,7 @@ services:
       - ${APPDATA}/filebrowser/config:/config
       - ${APPDATA}/filebrowser/database:/database
     ports:
-      - '8181:80'
+      - '${BIND_ADDR:-0.0.0.0}:8181:80'
 volumes:
   model-cache:
 

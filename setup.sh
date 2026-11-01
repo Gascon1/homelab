@@ -185,6 +185,9 @@ APPDATA=./appdata
 DATA_DIR=/srv/data
 HOST_ADDR=10.0.0.100
 
+# Address web UIs are published on (set to your LAN IP, e.g. 192.168.1.10)
+BIND_ADDR=0.0.0.0
+
 # Immich
 IMMICH_VERSION=release
 UPLOAD_LOCATION=/srv/data/media/photos
