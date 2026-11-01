@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Home media</title>
+<link rel="stylesheet" href="style.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Home media</h1>
+    <p class="lead">Pick an app to open it.</p>
+  </header>
+
+  <ul class="tiles">
+    <li>
+      <a class="tile" id="link-plex" href="/" data-port="32400" data-path="/web">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><rect x="4" y="8" width="40" height="28" rx="4" fill="none" stroke="currentColor" stroke-width="3"/><path d="M20 15l12 7-12 7z" fill="currentColor"/><path d="M16 42h16" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+        <span class="name">Plex</span>
+        <span class="what">Watch films and TV shows.</span>
+      </a>
+    </li>
+    <li>
+      <a class="tile" id="link-immich" href="/" data-port="2283" data-path="">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><rect x="5" y="9" width="38" height="30" rx="4" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="17" cy="20" r="4" fill="currentColor"/><path d="M7 35l12-11 8 7 6-5 10 9" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/></svg>
+        <span class="name">Immich</span>
+        <span class="what">Keep and share family photos and videos.</span>
+      </a>
+    </li>
+    <li>
+      <a class="tile" id="link-seerr" href="/" data-port="5055" data-path="">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="21" cy="21" r="12" fill="none" stroke="currentColor" stroke-width="3"/><path d="M30 30l11 11" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path d="M21 15v12M15 21h12" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+        <span class="name">Seerr</span>
+        <span class="what">Ask for a film or show to be added.</span>
+      </a>
+    </li>
+  </ul>
+
+  <section aria-labelledby="setup">
+    <h2 id="setup">Set up the app on your phone</h2>
+    <ol class="steps">
+      <li>
+        <h3>Immich</h3>
+        <p>Install the Immich app (<a href="https://apps.apple.com/app/immich/id1613945652" rel="noopener">iPhone</a>, <a href="https://play.google.com/store/apps/details?id=app.alextran.immich" rel="noopener">Android</a>). When it asks for the server URL, enter this address:</p>
+        <p class="copyrow">
+          <code id="immich-url" tabindex="0">https://&lt;this-address&gt;:2283</code>
+          <button type="button" id="copy" hidden>Copy</button>
+          <span id="copy-status" role="status" aria-live="polite"></span>
+        </p>
+        <p>Then sign in with the account the owner made for you.</p>
+      </li>
+      <li>
+        <h3>Plex</h3>
+        <p>Install the Plex app (<a href="https://apps.apple.com/app/plex-watch-live-tv-and-movies/id383457673" rel="noopener">iPhone</a>, <a href="https://play.google.com/store/apps/details?id=com.plexapp.android" rel="noopener">Android</a>). Sign in with the account the owner invited. The server shows up by itself.</p>
+      </li>
+      <li>
+        <h3>Seerr</h3>
+        <p>There is no app. Open Seerr in your browser with the tile above. Choose to sign in with Plex.</p>
+      </li>
+    </ol>
+    <noscript><p class="note">The tiles need JavaScript to find the right address. Without it, use the same address as this page, but add <code>:32400/web</code> for Plex, <code>:2283</code> for Immich or <code>:5055</code> for Seerr.</p></noscript>
+  </section>
+</main>
+</body>
+</html>

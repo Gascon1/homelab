@@ -6,6 +6,8 @@
 # The certificate for {$CADDY_DOMAIN} (a *.ts.net name) comes from tailscaled
 # through /var/run/tailscale/tailscaled.sock; no ACME account or DNS token is needed.
 # Each app keeps its LAN port number so Rack's links work unchanged.
+# The bare address (443) is a static family homepage (caddy/family/); family may reach it.
+# Rack has no login and sees the Docker socket, so it is only on :4000 (admin only by ACL).
 # Never add flaresolverr here: it is an unauthenticated proxy.
 # After editing: docker compose restart caddy
 
@@ -21,8 +23,16 @@
 	}
 }
 
-# Rack dashboard (also on :4000 so its own link works)
-{$CADDY_DOMAIN}, {$CADDY_DOMAIN}:4000 {
+# Family homepage: static files only, no proxy, no external requests
+{$CADDY_DOMAIN} {
+	import security_headers
+	header Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; frame-ancestors 'none'"
+	root * /srv/family
+	file_server
+}
+
+# Rack dashboard: admin only (tailnet ACL), never on the bare address
+{$CADDY_DOMAIN}:4000 {
 	import security_headers
 	reverse_proxy rack:4000
 }

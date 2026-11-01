@@ -259,7 +259,7 @@ docker compose up -d
 
 ### Task 9. Paste the access rules
 
-**Why:** The rules decide who can reach which port. You get all ports. Family gets only Plex, Immich and Seerr.
+**Why:** The rules decide who can reach which port. You get all ports. Family gets only the family homepage, Plex, Immich and Seerr.
 
 1. On the server, show the policy file.
 
@@ -442,9 +442,10 @@ docker compose --profile remote up -d
 4. Sign in on the laptop.
 5. If the admin console shows a device that waits for approval, open the Machines page and click Approve.
 6. On the phone, set Tailscale to on.
-7. Open `https://homelab.<YOUR-TAILNET>` in the phone browser.
+7. Open `https://homelab.<YOUR-TAILNET>:4000` in the phone browser. This is the Rack address.
+8. Open `https://homelab.<YOUR-TAILNET>` in the phone browser. This is the family homepage.
 
-**Result:** The browser shows a padlock and the Rack dashboard. The links in Rack open each app.
+**Result:** The Rack address shows a padlock and the Rack dashboard. The links in Rack open each app. The family homepage shows three tiles.
 
 ### Task 17. Set the phone apps
 
@@ -482,8 +483,9 @@ Keep Tailscale on during these steps.
    - `https://homelab.<YOUR-TAILNET>:8080` (qBittorrent)
    - `https://homelab.<YOUR-TAILNET>:8181` (File Browser)
 9. Open `https://homelab.<YOUR-TAILNET>:8191`. The page must not load. FlareSolverr is never available through Caddy.
-10. Set Wi-Fi to on again.
-11. On the server, run the exposure check one more time.
+10. Open `https://homelab.<YOUR-TAILNET>:4000`. The Rack dashboard must open for you, the admin.
+11. Set Wi-Fi to on again.
+12. On the server, run the exposure check one more time.
 
 ```bash
 ./scripts/check-exposure.sh
@@ -625,10 +627,13 @@ http://<SERVER-LAN-IP>:32400,https://homelab.<YOUR-TAILNET>:32400
    - `https://homelab.<YOUR-TAILNET>:32400`
    - `https://homelab.<YOUR-TAILNET>:2283`
    - `https://homelab.<YOUR-TAILNET>:5055`
-10. Ask the family member to open `https://homelab.<YOUR-TAILNET>:8989`. The page must not load.
-11. Ask the family member to open `https://homelab.<YOUR-TAILNET>` (Rack on port 443). The page must not load.
+10. Send the family member this address: `https://homelab.<YOUR-TAILNET>`. This is the family homepage.
+11. Tell the family member to save the address as a bookmark on the phone.
+12. Ask the family member to open the family homepage. The page must show tiles for Plex, Immich and Seerr.
+13. Ask the family member to open `https://homelab.<YOUR-TAILNET>:4000`. The page must not load.
+14. Ask the family member to open `https://homelab.<YOUR-TAILNET>:8989`. The page must not load.
 
-**Result:** Family can use ports 32400, 2283 and 5055. The ports 443 (Rack), 4000, 19999, 8080 and 8989 time out for them.
+**Result:** Family can use ports 443 (homepage), 32400, 2283 and 5055. The ports 4000 (Rack), 19999, 8080 and 8989 time out for them.
 
 > **NOTE**
 > The free plan allows up to 6 users.
@@ -1125,7 +1130,7 @@ git fetch origin main
 | The page does not load, and Tailscale is on. | Make sure the device is approved (Task 15). Run `docker compose --profile remote ps` to see if `caddy` runs. |
 | `caddy` does not start, or stops after a restart of `tailscale`. | Run `docker compose --profile remote up -d`. This starts `caddy` again. |
 | The machine is named `homelab-1`. | An old machine named `homelab` exists. Delete the old machine in the admin console. Or set `TS_HOSTNAME` to a new name and use that name. |
-| Rack links do not open. | Use the Rack address `https://homelab.<YOUR-TAILNET>` with no port. Do not use the LAN address. |
+| Rack links do not open. | Use the Rack address `https://homelab.<YOUR-TAILNET>:4000`. Do not use the LAN address. Only the admin can open this address. |
 | A family member cannot open Plex, Immich or Seerr. | Examine the email in `group:family` (Task 9). Make sure the device is approved. |
 | A page opens with no sign-in form. | Stop. Do Task 3 again. Do not use the page until it asks for a password. |
 | Radarr or Sonarr cannot reach qBittorrent. | Type the new password in Settings > Download Clients (Task 2). |

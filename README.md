@@ -194,7 +194,7 @@ Critical data to backup:
 
 ## Remote Access
 
-Remote access goes through [Tailscale](https://tailscale.com) (a private WireGuard network), not open router ports. Two opt-in containers do this: `tailscale` joins your tailnet and `caddy` serves every app over HTTPS at `https://<TS_HOSTNAME>.<TS_TAILNET>:<usual port>` (Rack is on the plain `https://<TS_HOSTNAME>.<TS_TAILNET>`). FlareSolverr is never exposed.
+Remote access goes through [Tailscale](https://tailscale.com) (a private WireGuard network), not open router ports. Two opt-in containers do this: `tailscale` joins your tailnet and `caddy` serves every app over HTTPS at `https://<TS_HOSTNAME>.<TS_TAILNET>:<usual port>` (the plain `https://<TS_HOSTNAME>.<TS_TAILNET>` is a static family homepage from `caddy/family/`; Rack is admin only on `:4000`). FlareSolverr is never exposed.
 
 Set the `TS_*` variables in `.env`, then:
 

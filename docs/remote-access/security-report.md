@@ -13,7 +13,7 @@ Line numbers (`compose.yml:NN`) point at the file as it was before this branch (
 **What we recommend.** Do **not** open ports on the router for the admin tools. Use **Tailscale** (a WireGuard-based private network) as the only way in from outside:
 
 - A `tailscale` container (opt-in, compose profile `remote`) joins your tailnet as the machine `homelab`.
-- A `caddy` container shares that network and is the single HTTPS front door. It gets a real, trusted certificate for `homelab.<your-tailnet>.ts.net` from Tailscale. Each app keeps its usual port number, so Sonarr is `https://homelab.<tailnet>.ts.net:8989`, Immich is `...:2283`, and so on. Rack's links keep working without changes.
+- A `caddy` container shares that network and is the single HTTPS front door. It gets a real, trusted certificate for `homelab.<your-tailnet>.ts.net` from Tailscale. Each app keeps its usual port number, so Sonarr is `https://homelab.<tailnet>.ts.net:8989`, Immich is `...:2283`, and so on. Rack's links keep working without changes. Rack itself is on `:4000` only; the bare address `https://homelab.<tailnet>.ts.net` (443) serves a static family homepage (see the update note at the end).
 - Devices on the tailnet can only reach the ports Caddy serves. FlareSolverr is never exposed. They cannot reach SSH, Postgres or anything else on the host.
 - Tailscale access rules (ACLs) decide who sees what. You get everything. Family members you invite (the free plan allows 6 users) can be limited to Plex, Immich and Seerr.
 - On the LAN, nothing changes: `http://<server-ip>:<port>` keeps working.
@@ -160,7 +160,7 @@ docker exec immich_server env | grep -E 'RACK_|TS_AUTHKEY|QBITTORRENT' ; echo "r
 - With the Tailscale app **off**: `https://homelab.<tailnet>.ts.net:8989` must not load (the DNS name will not resolve or will time out).
 - With the Tailscale app **on**: it loads with a valid padlock and asks for a login (Sonarr shows its login form, not the dashboard). Do the same for 7878, 9696, 8080 and 8181.
 - `https://homelab.<tailnet>.ts.net:8191` must fail (FlareSolverr is never proxied).
-- From a family member's device (if invited): 32400, 2283 and 5055 work, and 443 (Rack), 19999, 8080 and 8989 time out (ACL).
+- From a family member's device (if invited): 443 (family homepage), 32400, 2283 and 5055 work, and 4000 (Rack), 19999, 8080 and 8989 time out (ACL).
 - Online check: https://www.shodan.io/host/<public-ip> should show nothing, or Plex only. Check again a week later.
 
 **On the router**
@@ -168,3 +168,7 @@ docker exec immich_server env | grep -E 'RACK_|TS_AUTHKEY|QBITTORRENT' ; echo "r
 - UPnP / NAT-PMP: off.
 - Port forwards: none, or only TCP 32400 to the server.
 - IPv6 firewall: inbound blocked by default.
+
+## Update 2026-11-01: family homepage on 443
+
+Rack was served on the bare address (443). Family was denied 443 so it could not reach Rack, but that left family with no friendly start page. Port 443 now serves a static page from `caddy/family/` (no proxy, no scripts from outside, strict Content-Security-Policy). Rack moved to `:4000` only. The tailnet policy now lets `group:family` reach 443 and still denies 4000. Rack still has no login and still holds the Docker socket, so the ACL on 4000 is what protects it. Test: on a family device the homepage opens and `:4000` times out.
