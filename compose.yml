@@ -44,10 +44,8 @@ services:
     restart: unless-stopped
 
   rack:
-    # Pulled from GHCR by the deploy timer (see docs/deploy.md). `build` stays so
-    # `docker compose up -d --build` still builds locally.
-    image: ghcr.io/gascon1/homelab-rack:${RACK_TAG:-main}
     build: ./rack
+    pull_policy: build
     container_name: rack
     environment:
       - TZ=${TZ}

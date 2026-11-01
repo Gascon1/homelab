@@ -204,10 +204,6 @@ docker compose --profile remote up -d
 
 Set `COMPOSE_PROFILES=remote` in `.env` to include them in every command. See [docs/remote-access/](docs/remote-access/) for the security report and setup steps.
 
-## Automatic Deploys
-
-A systemd timer on the server can deploy each change merged to `main` once its GitHub `release` check is green, and roll back if the stack does not start. The server pulls from GitHub; nothing connects in. See [docs/deploy.md](docs/deploy.md) and Part D of [MANUAL-STEPS](docs/remote-access/MANUAL-STEPS.md).
-
 ## Security Considerations
 
 - Change all default passwords
