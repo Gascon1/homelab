@@ -1,0 +1,75 @@
+# Single HTTPS entrypoint for the tailnet. See docs/remote-access/.
+# The certificate for {$CADDY_DOMAIN} (a *.ts.net name) comes from tailscaled
+# through /var/run/tailscale/tailscaled.sock; no ACME account or DNS token is needed.
+# Each app keeps its LAN port number so Rack's links work unchanged.
+# Never add flaresolverr here: it is an unauthenticated proxy.
+# After editing: docker compose restart caddy
+
+{
+	# Off on purpose: tailnet traffic reaches localhost ports in this network namespace
+	admin off
+}
+
+(common) {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+}
+
+# Rack dashboard (also on :4000 so its own link works)
+{$CADDY_DOMAIN}, {$CADDY_DOMAIN}:4000 {
+	import common
+	reverse_proxy rack:4000
+}
+
+{$CADDY_DOMAIN}:5055 {
+	import common
+	reverse_proxy seerr:5055
+}
+
+{$CADDY_DOMAIN}:32400 {
+	import common
+	reverse_proxy plex:32400
+}
+
+{$CADDY_DOMAIN}:8080 {
+	import common
+	reverse_proxy qbittorrent:8080
+}
+
+{$CADDY_DOMAIN}:7878 {
+	import common
+	reverse_proxy radarr:7878
+}
+
+{$CADDY_DOMAIN}:8989 {
+	import common
+	reverse_proxy sonarr:8989
+}
+
+{$CADDY_DOMAIN}:9696 {
+	import common
+	reverse_proxy prowlarr:9696
+}
+
+{$CADDY_DOMAIN}:2283 {
+	import common
+	reverse_proxy immich-server:2283
+}
+
+{$CADDY_DOMAIN}:19999 {
+	import common
+	reverse_proxy netdata:19999
+}
+
+{$CADDY_DOMAIN}:8181 {
+	import common
+	reverse_proxy filebrowser:80
+}
+
+# Container healthcheck only; returns a constant
+http://:8099 {
+	bind 127.0.0.1
+	respond "ok" 200
+}

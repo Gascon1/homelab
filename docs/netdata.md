@@ -29,7 +29,7 @@ Netdata is a real-time performance and health monitoring solution for systems an
 ### Initial Setup
 
 1. Access Netdata at `http://<server-ip>:19999`
-2. No login required by default (configure if exposing externally)
+2. No login. Never expose port 19999 to the internet; over Tailscale, limit it to your own devices (see the example policy in remote-access/)
 
 ### Capabilities
 
@@ -82,5 +82,5 @@ Configure alerts in `/etc/netdata/health.d/`:
 
 - The web UI is read-only by default
 - Historical data is stored locally
-- Consider connecting to Netdata Cloud for remote access
+- For remote access use the Tailscale setup in [remote access](remote-access/) instead of Netdata Cloud
 - Docker container metrics require the Docker socket mount

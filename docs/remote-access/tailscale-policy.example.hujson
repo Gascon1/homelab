@@ -1,0 +1,23 @@
+// Example tailnet policy for this homelab. Paste into admin console > Access controls,
+// then replace the example family address(es). Keep "tagOwners" before creating the auth key.
+{
+	"tagOwners": {
+		"tag:homelab": ["autogroup:admin"],
+	},
+
+	"groups": {
+		// People you invite who should only see Plex, Immich and Seerr
+		"group:family": ["family-member@example.com"],
+	},
+
+	"acls": [
+		// You (tailnet admins): everything on the server
+		{"action": "accept", "src": ["autogroup:admin"], "dst": ["tag:homelab:*"]},
+
+		// Family: Plex 32400, Immich 2283, Seerr 5055 only (no Rack, Netdata, *arr, qBittorrent, File Browser)
+		{"action": "accept", "src": ["group:family"], "dst": ["tag:homelab:32400,2283,5055"]},
+
+		// Everyone's own devices can still talk to each other
+		{"action": "accept", "src": ["autogroup:member"], "dst": ["autogroup:self:*"]},
+	],
+}

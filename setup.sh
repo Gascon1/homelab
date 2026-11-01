@@ -19,12 +19,35 @@ log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Relative paths in .env (APPDATA=./appdata) are relative to the repo, like docker compose
+cd "${SCRIPT_DIR}"
+
+# Read KEY=VALUE lines from an env file without executing it as shell code
+load_env() {
+    local line key value
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line%$'\r'}"
+        [[ "$line" =~ ^[[:space:]]*(#|$) ]] && continue
+        if [[ "$line" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
+            key="${BASH_REMATCH[2]}"
+            value="${BASH_REMATCH[3]}"
+            if [[ "$value" =~ ^\"(.*)\"[[:space:]]*$ ]] || [[ "$value" =~ ^\'(.*)\'[[:space:]]*$ ]]; then
+                value="${BASH_REMATCH[1]}"
+            else
+                # Unquoted: drop an inline " # comment" and trailing spaces, like docker compose
+                value="${value%%[[:space:]]#*}"
+                value="${value%"${value##*[![:space:]]}"}"
+            fi
+            export "${key}=${value}"
+        fi
+    done < "$1"
+}
+
 # Load environment variables if .env exists
 if [[ -f "${SCRIPT_DIR}/.env" ]]; then
     log_info "Loading environment from .env"
-    set -a
-    source "${SCRIPT_DIR}/.env"
-    set +a
+    load_env "${SCRIPT_DIR}/.env"
+    chmod 600 "${SCRIPT_DIR}/.env" 2>/dev/null || log_warn "Could not restrict permissions on .env"
 else
     log_warn ".env file not found. Using default values."
     log_warn "Copy .env.example to .env and configure before running docker compose."
@@ -66,6 +89,11 @@ APPDATA_DIRS=(
     # File management
     "${APPDATA}/filebrowser/config"
     "${APPDATA}/filebrowser/database"
+
+    # Remote access (only used with the 'remote' compose profile)
+    "${APPDATA}/tailscale"
+    "${APPDATA}/caddy/data"
+    "${APPDATA}/caddy/config"
 
     # Immich database
     "${DB_DATA_LOCATION}"
@@ -156,6 +184,8 @@ log_info "Setting ownership to ${PUID}:${PGID}..."
 
 # Only set ownership on directories we created (avoid changing external mounts)
 chown -R "${PUID}:${PGID}" "${APPDATA}" 2>/dev/null || log_warn "Could not set ownership on ${APPDATA} (may need sudo)"
+# Tailscale state holds the node's private key
+chmod 700 "${APPDATA}/tailscale" 2>/dev/null || true
 
 if [[ -d "${DATA_DIR}" ]]; then
     chown -R "${PUID}:${PGID}" "${DATA_DIR}" 2>/dev/null || log_warn "Could not set ownership on ${DATA_DIR} (may need sudo)"

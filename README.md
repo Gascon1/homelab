@@ -152,6 +152,9 @@ docker compose restart sonarr
 # Update all containers (--build also rebuilds Rack)
 docker compose pull && docker compose up -d --build
 
+# Same, including the remote-access containers (not needed if COMPOSE_PROFILES=remote is in .env)
+docker compose --profile remote pull && docker compose --profile remote up -d --build
+
 # One-time migration from Dashy: removes the old dashy containers
 # (appdata/dashy can be deleted afterwards)
 docker compose up -d --build --remove-orphans
@@ -175,11 +178,24 @@ Critical data to backup:
 | Photos/Videos   | `${UPLOAD_LOCATION}`  | Critical                      |
 | Media library   | `${DATA_DIR}/media/`  | Medium (can be re-downloaded) |
 
+## Remote Access
+
+Remote access goes through [Tailscale](https://tailscale.com) (a private WireGuard network), not open router ports. Two opt-in containers do this: `tailscale` joins your tailnet and `caddy` serves every app over HTTPS at `https://<TS_HOSTNAME>.<TS_TAILNET>:<usual port>` (Rack is on the plain `https://<TS_HOSTNAME>.<TS_TAILNET>`). FlareSolverr is never exposed.
+
+Set the `TS_*` variables in `.env`, then:
+
+```bash
+docker compose --profile remote up -d
+```
+
+Set `COMPOSE_PROFILES=remote` in `.env` to include them in every command. See [docs/remote-access/](docs/remote-access/) for the security report and setup steps.
+
 ## Security Considerations
 
 - Change all default passwords
 - Don't expose services directly to the internet
-- Use a reverse proxy with HTTPS for external access
+- For access away from home use the Tailscale + Caddy setup (see Remote Access), not router port forwards
+- In Radarr, Sonarr and Prowlarr set Authentication Required to "Enabled", not "Disabled for Local Addresses": behind Caddy every request looks local
 - Keep containers updated regularly
 - Review container capabilities (especially Netdata)
 - Set `BIND_ADDR` in `.env` to your LAN IP so web UIs are not published on every interface. Docker-published ports bypass ufw, so a firewall alone does not protect them.

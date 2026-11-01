@@ -157,7 +157,7 @@ Rack uses the lowest published TCP port. Add `rack.port=<web UI port>` to the co
 
 - Rack has no login. Anyone who can reach port 4000 can see your dashboard.
 - The Docker socket is mounted so Rack can list containers. Rack only reads from it, but a `:ro` mount does not by itself restrict the Docker API, so a compromised Rack could still control Docker.
-- Do not expose port 4000 beyond your LAN.
+- Do not expose port 4000 beyond your LAN. For remote use, reach Rack over Tailscale at `https://<TS_HOSTNAME>.<TS_TAILNET>/` (see [remote access](remote-access/)); its links to the other apps then use HTTPS automatically, because Caddy serves each app on its usual port.
 
 ## Tips
 

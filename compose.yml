@@ -102,7 +102,8 @@ services:
       - PGID=${PGID}
       - TZ=${TZ}
       - VERSION=docker
-      - ADVERTISE_IP=${HOST_ADDR}:32400/
+      # Comma-separated URLs Plex advertises to clients. Add your tailnet URL via PLEX_ADVERTISE_URLS (see .env.example)
+      - ADVERTISE_IP=${PLEX_ADVERTISE_URLS:-http://${HOST_ADDR}:32400/}
     volumes:
       # Make paths match the *arr containers to avoid path-mapping pain
       - ${DATA_DIR}:/data
@@ -282,8 +283,79 @@ services:
       - ${APPDATA}/filebrowser/database:/database
     ports:
       - '${BIND_ADDR:-0.0.0.0}:8181:80'
+
+  # ---------- Remote access (opt-in: docker compose --profile remote ...) ----------
+  # See docs/remote-access/. Tailnet devices reach only the ports Caddy serves.
+  tailscale:
+    image: tailscale/tailscale:v1.104.4
+    container_name: tailscale
+    profiles: [remote]
+    hostname: ${TS_HOSTNAME:-homelab}
+    networks: [homelab]
+    environment:
+      - TS_AUTHKEY=${TS_AUTHKEY:-}
+      - TS_HOSTNAME=${TS_HOSTNAME:-homelab}
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SOCKET=/var/run/tailscale/tailscaled.sock
+      - TS_USERSPACE=true
+      - TS_AUTH_ONCE=true
+      - TS_ACCEPT_DNS=false
+      - TS_EXTRA_ARGS=${TS_EXTRA_ARGS:-}
+    volumes:
+      - ${APPDATA}/tailscale:/var/lib/tailscale
+      - tailscale-socket:/var/run/tailscale
+    # No ports: nothing is published on the host
+    healthcheck:
+      test: ['CMD', 'tailscale', 'status', '--peers=false']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+  caddy:
+    image: caddy:2.11.7
+    container_name: caddy
+    profiles: [remote]
+    # Shares the tailscale container's network: same tailnet IP, same homelab network
+    network_mode: service:tailscale
+    depends_on:
+      tailscale:
+        condition: service_healthy
+        restart: true
+    environment:
+      - CADDY_DOMAIN=${TS_HOSTNAME:-homelab}.${TS_TAILNET:-tailnet-name.ts.net}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ${APPDATA}/caddy/data:/data
+      - ${APPDATA}/caddy/config:/config
+      # tailscaled's LocalAPI socket: Caddy gets the *.ts.net certificate through it
+      - tailscale-socket:/var/run/tailscale
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:8099/']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
 volumes:
   model-cache:
+  tailscale-socket:
 
 # ---------- Networks ----------
 networks:
