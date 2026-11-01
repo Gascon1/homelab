@@ -961,10 +961,14 @@ repo:Gascon1/homelab:ref:refs/heads/main
 2. Click the Variables tab.
 3. Click New repository variable.
 4. Set Name to `TS_HOST`.
-5. Set Value to `homelab.<YOUR-TAILNET>`. Use your real tailnet name.
-6. Click Add variable.
+5. Set Value to `homelab.<YOUR-TAILNET>`. Use your real tailnet name. An example is `homelab.tail1234.ts.net`.
+6. Do not type `https://`. Do not type a `/` at the end. Do not type a port.
+7. Click Add variable.
 
 **Result:** The Variables tab shows `TS_HOST` with the address of your server.
+
+> **NOTE**
+> If the `notify` job shows "Connection timed out", examine `TS_HOST` first. A `/` at the end sends the request to port 443. The access rules block port 443 for `tag:ci`.
 
 ### Task 34. Start the deploy hook and install the path unit
 

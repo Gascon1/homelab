@@ -98,6 +98,14 @@ jobs:
           DEPLOY_HOOK_SECRET: ${{ secrets.DEPLOY_HOOK_SECRET }}
           TS_HOST: ${{ vars.TS_HOST }}
         run: |
+          # Accept "https://host/", "host:9000" and the like: keep only the host name
+          host="${TS_HOST#*://}"; host="${host%%/*}"; host="${host%%:*}"
+          if ! [[ "$host" =~ ^[A-Za-z0-9.-]+$ ]]; then
+            echo "::error::TS_HOST must be a host name like homelab.tail1234.ts.net (got: $TS_HOST)"
+            exit 1
+          fi
+          [ "$host" = "$TS_HOST" ] || echo "::warning::TS_HOST should be just the host name; using $host"
+          TS_HOST="$host"
           body="$(jq -nc --arg sha "$GITHUB_SHA" --argjson ts "$(date +%s)" '{sha: $sha, ts: $ts}')"
           sig="$(printf '%s' "$body" | openssl dgst -sha256 -hmac "$DEPLOY_HOOK_SECRET" | sed 's/^.* //')"
           curl --fail --silent --show-error --max-time 20 --retry 3 --retry-all-errors \
