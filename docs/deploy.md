@@ -46,7 +46,7 @@ The hourly timer is slow. The doorbell makes a deploy start within a minute, and
 ```mermaid
 flowchart LR
     R[release job green] --> N[notify job]
-    N -->|OAuth, tag:ci| TS[ephemeral tailnet node]
+    N -->|OIDC, tag:ci| TS[ephemeral tailnet node]
     TS -->|POST /deploy, HMAC<br/>tailnet only, port 9000| C[Caddy, remote profile]
     C --> H[deploy-hook container, push profile]
     H -->|verify HMAC + time,<br/>write trigger file| TF[(appdata/deploy-hook/trigger)]
@@ -75,15 +75,17 @@ Set these in GitHub, Settings > Secrets and variables > Actions:
 | Name | Kind | Value |
 | --- | --- | --- |
 | `DEPLOY_HOOK_SECRET` | repository secret | `openssl rand -hex 32`. The same value is `DEPLOY_HOOK_SECRET` in the server `.env` |
-| `TS_OAUTH_CLIENT_ID` | repository secret | Tailscale OAuth client ID |
-| `TS_OAUTH_SECRET` | repository secret | Tailscale OAuth client secret |
+| `TS_OAUTH_CLIENT_ID` | repository secret | Client ID of the Tailscale federated identity |
+| `TS_AUDIENCE` | repository secret | Audience of the Tailscale federated identity |
 | `TS_HOST` | repository variable | `homelab.<YOUR-TAILNET>` (the `TS_HOSTNAME` and `TS_TAILNET` values joined) |
 
 Tailscale side:
 
 - Paste the updated `docs/remote-access/tailscale-policy.example.hujson`. It adds `tag:ci` (owned by `autogroup:admin`) and one grant: `tag:ci` to `tag:homelab` on `tcp:9000` only. Its tests check that `tag:ci` cannot reach ports 4000, 443, 8080, 19999 or 22, and that family cannot reach 9000.
-- Make an OAuth client (Tailscale admin console, Settings > OAuth clients) with **one scope: `auth_keys`, write** (in the console: Keys > Auth Keys > Write), and the tag `tag:ci` on that scope. The action's README and `tags` input at the pinned commit require exactly this scope, and that the client's tags match the `tags` input. Do not use `devices:core`: that scope can also delete and authorize every device on the tailnet. Select no other scope. Every node the action makes has only `tag:ci`.
-- The workflow uses [`tailscale/github-action`](https://github.com/tailscale/github-action) v4.4.0, pinned by commit SHA `064b10558093f38325e838ddea35486bdc6b1d5c`. Inputs used: `oauth-client-id`, `oauth-secret`, `tags`. With an OAuth client the action joins as an ephemeral, preauthorized node and logs out in its post step, so Tailscale removes the node when the job ends.
+- Make a federated identity for [workload identity federation](https://tailscale.com/kb/1581/workload-identity-federation) (Tailscale admin console, Settings > Trust credentials, type OpenID Connect, issuer GitHub). No Tailscale secret is stored in GitHub: the `notify` job has only `id-token: write` and trades a short-lived GitHub OIDC token for the login.
+  - **Subject:** exactly `repo:Gascon1/homelab:ref:refs/heads/main` (the GitHub OIDC `sub` of a job on `main` with no environment). No wildcard: a wider subject lets other branches, pull requests or repositories join as `tag:ci`.
+  - **Scope:** one scope, `auth_keys` write (console: Keys > Auth Keys > Write), with the tag `tag:ci` only. The action's README and `tags` input at the pinned commit require exactly this scope, and that the credential's tags match the `tags` input. Do not use `devices:core`: it can also delete and authorize every device on the tailnet.
+- The workflow uses [`tailscale/github-action`](https://github.com/tailscale/github-action) v4.4.0, pinned by commit SHA `064b10558093f38325e838ddea35486bdc6b1d5c`. Inputs used: `oauth-client-id`, `audience`, `tags` (federation needs Tailscale 1.90.1 or later; the action's default is 1.104.4). The action joins as an ephemeral, preauthorized node and logs out in its post step, so Tailscale removes the node when the job ends.
 
 Server side:
 
@@ -96,7 +98,7 @@ Server side:
 
 ### Turn push deploy off
 
-Delete the repository secrets `DEPLOY_HOOK_SECRET`, `TS_OAUTH_CLIENT_ID` and `TS_OAUTH_SECRET`. The `notify` job then prints "push deploy not configured; the timer fallback will deploy" and passes. For a full shutdown also revoke the OAuth client in Tailscale, remove `push` from `COMPOSE_PROFILES` in `.env`, run `docker compose --profile push rm -sf deploy-hook`, and run `sudo systemctl disable --now homelab-deploy.path` on the server. Deploys continue every hour.
+Delete the repository secrets `DEPLOY_HOOK_SECRET`, `TS_OAUTH_CLIENT_ID` and `TS_AUDIENCE`. The `notify` job then prints "push deploy not configured; the timer fallback will deploy" and passes. For a full shutdown also delete the federated identity in Tailscale (Settings > Trust credentials), remove `push` from `COMPOSE_PROFILES` in `.env`, run `docker compose --profile push rm -sf deploy-hook`, and run `sudo systemctl disable --now homelab-deploy.path` on the server. Deploys continue every hour.
 
 ### Troubleshooting
 

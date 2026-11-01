@@ -55,9 +55,9 @@ The tasks make your homelab safe. Then they let you reach it from outside your h
 | [ ] | 29. Examine the timer and logs | Check that the timer runs | 3 min |
 | [ ] | 30. Deploy hook secret | Make the secret. Put it in `.env` and in GitHub | 5 min |
 | [ ] | 31. Push deploy rules | Paste the policy file that has `tag:ci` | 5 min |
-| [ ] | 32. Tailscale OAuth client | Make the client. Put its values in GitHub | 10 min |
+| [ ] | 32. Tailscale federated identity | Make the identity. Put its values in GitHub | 10 min |
 | [ ] | 33. Repository variable | Add `TS_HOST` in GitHub | 3 min |
-| [ ] | 34. Start the deploy hook | Restart the `remote` profile. Install the path unit | 5 min |
+| [ ] | 34. Start the deploy hook | Add the `push` profile. Install the path unit | 5 min |
 | [ ] | 35. Test with a small pull request | Make sure an automatic deploy works | 10 min |
 | [ ] | 36. Pause and roll back | Stop the deploy units. Go back to an old version | 5 min |
 | [ ] | 37. If the repository is private (optional) | Set the token, deploy key and build mode | 20 min |
@@ -870,31 +870,42 @@ cat docs/remote-access/tailscale-policy.example.hujson
 > **CAUTION**
 > If a test fails, do not continue. A failed test can mean that `tag:ci` reaches more than port 9000.
 
-### Task 32. Make the Tailscale OAuth client
+### Task 32. Make the Tailscale federated identity
 
-**Why:** GitHub uses this client to join your tailnet for a few seconds. The client can only make nodes with the tag `tag:ci`.
+**Why:** GitHub uses this identity to join your tailnet for a few seconds. GitHub proves who it is with a short token (OIDC). You store no Tailscale secret in GitHub. The identity can only make nodes with the tag `tag:ci`.
 
-> **WARNING**
-> The client secret works like a password. Do not send it to other people. The page shows it only one time.
+**Before you start:** Do Task 31. The tag `tag:ci` must exist.
 
-1. In the admin console, open Settings. Click OAuth clients.
-2. Click Generate OAuth client.
-3. Find the Keys section. Find the scope Auth Keys (`auth_keys`). Set it to Write.
-4. Select no other scope. Do not select Devices Core.
-5. For the Auth Keys scope, click Add tags. Choose `tag:ci`.
-6. Click Generate client.
-7. Copy the Client ID.
-8. On GitHub, open Settings > Secrets and variables > Actions.
-9. Click New repository secret.
-10. Set Name to `TS_OAUTH_CLIENT_ID`. Paste the Client ID. Click Add secret.
-11. In the admin console, copy the Client secret.
-12. On GitHub, click New repository secret.
-13. Set Name to `TS_OAUTH_SECRET`. Paste the client secret. Click Add secret.
+1. In the admin console, open Settings. Click Trust credentials.
+2. Add a new credential. Choose the type OpenID Connect.
+3. Set the issuer to GitHub.
+4. Set the subject to this exact text:
 
-**Result:** GitHub has the two secrets `TS_OAUTH_CLIENT_ID` and `TS_OAUTH_SECRET`.
+```text
+repo:Gascon1/homelab:ref:refs/heads/main
+```
+
+5. Find the Keys section. Find the scope Auth Keys (`auth_keys`). Set it to Write.
+6. Select no other scope. Do not select Devices Core.
+7. For the Auth Keys scope, add the tag `tag:ci`. Add no other tag.
+8. Save the credential.
+9. Copy the Client ID. Copy the Audience.
+10. On GitHub, open Settings > Secrets and variables > Actions.
+11. Click New repository secret.
+12. Set Name to `TS_OAUTH_CLIENT_ID`. Paste the Client ID. Click Add secret.
+13. Click New repository secret.
+14. Set Name to `TS_AUDIENCE`. Paste the Audience. Click Add secret.
+
+**Result:** GitHub has the two secrets `TS_OAUTH_CLIENT_ID` and `TS_AUDIENCE`. The credential in Tailscale trusts only the `main` branch of `Gascon1/homelab`.
+
+> **CAUTION**
+> Do not use a subject with `*`. A wide subject lets other branches, pull requests or other repositories join your tailnet as `tag:ci`.
 
 > **CAUTION**
 > The scope Devices Core can delete and approve all devices on your tailnet. The GitHub action needs only Auth Keys with Write.
+
+> **NOTE**
+> The names on the page can be different. Look for "workload identity federation" in the Tailscale documentation.
 
 ### Task 33. Add the repository variable TS_HOST
 
