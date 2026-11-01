@@ -67,6 +67,7 @@ export const qbittorrent: App = {
   name: 'qBittorrent',
   group: 'Downloads',
   icon: 'qbittorrent',
+  featured: true,
   port: 8080,
   widget: defineWidget<Login | null>({
     intervalMs: 3000,
@@ -92,13 +93,17 @@ export const qbittorrent: App = {
       const peak = Math.max(PEAK_FLOOR, ...session.speeds);
       const pulling = down > 0 && active.length > 0;
 
+      const level = Math.min(1, down / peak);
+
       return {
+        busy: active.length > 0 || level > 0.04,
+        attention: false,
         stats: [
           { label: 'down', value: formatRate(down), tone: pulling ? 'good' : 'normal' },
           { label: 'up', value: formatRate(transfer.up_info_speed ?? 0), tone: 'normal' },
           { label: 'active', value: formatCount(active.length), tone: 'normal' },
         ],
-        meter: { label: 'download speed', value: Math.min(1, down / peak) },
+        meter: { label: 'download speed', value: level },
         lines: pulling ? [{ text: `qBittorrent is pulling ${formatRate(down)}`, kind: 'activity' }] : [],
       };
     },

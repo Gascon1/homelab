@@ -18,6 +18,8 @@ export interface ResolvedService {
   internal: string | null;
   widget: string | null;
   order: number | null;
+  /** From the app's own module; see App.featured. */
+  featured: boolean;
   container: ContainerInfo | null;
 }
 
@@ -56,6 +58,7 @@ function resolveContainer(container: ContainerInfo, override: ServiceOverride): 
     internal: firstDefined(override.internal, labels['rack.internal'], derivedInternal),
     widget: widgetName(firstDefined(override.widget, labels['rack.widget'], app?.widget ? app.id : null)),
     order: firstDefined(override.order, toInt(labels['rack.order'])),
+    featured: app?.featured === true,
     container,
   };
 }
@@ -73,6 +76,7 @@ function resolveStatic(id: string, override: ServiceOverride): ResolvedService {
     internal: override.internal ?? override.url ?? null,
     widget: widgetName(override.widget ?? null),
     order: override.order ?? null,
+    featured: findApp(id, '')?.featured === true,
     container: null,
   };
 }

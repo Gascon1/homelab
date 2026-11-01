@@ -19,6 +19,7 @@ export const plex: App = {
   name: 'Plex',
   group: 'Media',
   icon: 'plex',
+  featured: true,
   path: '/web',
   port: 32400,
   widget: defineWidget<string>({
@@ -37,6 +38,8 @@ export const plex: App = {
       const streams = sessions.length || data.MediaContainer?.size || 0;
       const transcodes = sessions.filter((s) => s.TranscodeSession).length;
       return {
+        busy: streams > 0 || transcodes > 0,
+        attention: false,
         stats: [
           { label: streams === 1 ? 'stream' : 'streams', value: formatCount(streams), tone: streams > 0 ? 'good' : 'normal' },
           { label: transcodes === 1 ? 'transcode' : 'transcodes', value: formatCount(transcodes), tone: 'normal' },

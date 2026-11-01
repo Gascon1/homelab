@@ -8,6 +8,10 @@ export interface DisplayLine {
 /** What an app's widget returns on success; the runner wraps it into a Widget. */
 export interface WidgetData {
   stats: Stat[];
+  /** Something is going on right now (a stream, a download, a queue). The app decides, not the stat labels. */
+  busy: boolean;
+  /** Something the owner should look at (a warning, a failing indexer). */
+  attention: boolean;
   meter?: { label: string; value: number };
   lines?: DisplayLine[];
 }
@@ -91,6 +95,8 @@ export interface App {
   path?: string;
   /** The app's default port inside its container. */
   port?: number;
+  /** Gets a bigger tile, first in its group. */
+  featured?: boolean;
   /** Null for apps Rack lists but cannot read. */
   widget: AppWidget | null;
   demo?: AppDemo;

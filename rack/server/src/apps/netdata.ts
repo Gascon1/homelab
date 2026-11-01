@@ -26,6 +26,8 @@ export const netdata: App = {
             ? [{ text: `Netdata has ${warning} ${warning === 1 ? 'warning' : 'warnings'}`, kind: 'problem' as const }]
             : [];
       return {
+        busy: false,
+        attention: critical > 0 || warning > 0,
         stats: [
           { label: 'critical', value: formatCount(critical), tone: critical > 0 ? 'bad' : 'good' },
           { label: 'warnings', value: formatCount(warning), tone: warning > 0 ? 'warn' : 'good' },

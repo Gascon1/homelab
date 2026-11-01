@@ -102,3 +102,15 @@ test('the demo host moves with the clock', async () => {
   assert.equal(b.host.uptimeSeconds! - a.host.uptimeSeconds!, 20);
   assert.equal(a.host.disks.length, 2);
 });
+
+test('the demo states what is busy, what needs a look and what is featured', async () => {
+  const busy = await demoAt(100);
+  assert.deepEqual(['plex', 'qbittorrent'].map((id) => find(busy, id).featured), [true, true]);
+  assert.equal(find(busy, 'sonarr').featured, false);
+  assert.equal(find(busy, 'plex').widget!.busy, true);
+  assert.equal(find(busy, 'netdata').widget!.attention, false);
+
+  const idle = await demoAt(0);
+  assert.equal(find(idle, 'plex').widget!.busy, false);
+  assert.equal(find(await demoAt(270), 'netdata').widget!.attention, true);
+});

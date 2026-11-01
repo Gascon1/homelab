@@ -19,6 +19,8 @@ export const flaresolverr: App = {
       const hello = await getJson<Hello>(http, `${baseUrl}/`);
       const ready = /ready/i.test(hello.msg ?? '');
       return {
+        busy: false,
+        attention: !ready,
         stats: [{ label: ready ? 'ready' : 'not ready', value: hello.version ? `v${hello.version}` : '', tone: ready ? 'good' : 'warn' }],
       };
     },

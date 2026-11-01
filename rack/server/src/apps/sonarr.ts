@@ -30,6 +30,8 @@ export const sonarr: App = {
         getJson<Paged>(http, `${api}/wanted/missing?pageSize=1`, headers),
       ]);
       return {
+        busy: (queue.totalRecords ?? 0) > 0,
+        attention: false,
         stats: [
           { label: 'in queue', value: count(queue.totalRecords), tone: 'normal' },
           { label: 'airing today', value: formatCount(today.length), tone: 'normal' },

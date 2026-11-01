@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import type { State } from './types';
+import type { State } from '../../shared/state.ts';
 
 export type Link = 'connecting' | 'live' | 'polling' | 'lost';
 export interface Rack { state: State | null; link: Link; lastOk: Date | null }

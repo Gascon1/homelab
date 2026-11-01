@@ -22,6 +22,8 @@ export const prowlarr: App = {
       ]);
       const failing = status.length;
       return {
+        busy: false,
+        attention: failing > 0,
         stats: [
           { label: 'indexers', value: formatCount(indexers.length), tone: 'normal' },
           { label: 'failing', value: formatCount(failing), tone: failing > 0 ? 'warn' : 'good' },

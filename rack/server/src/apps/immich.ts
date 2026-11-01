@@ -25,6 +25,8 @@ export const immich: App = {
     async fetch({ baseUrl, credential, http }) {
       const stats = await getJson<ServerStatistics>(http, `${baseUrl}/api/server/statistics`, { 'x-api-key': credential });
       return {
+        busy: false,
+        attention: false,
         stats: [
           { label: 'photos', value: formatCount(stats.photos ?? 0), tone: 'normal' },
           { label: 'videos', value: formatCount(stats.videos ?? 0), tone: 'normal' },

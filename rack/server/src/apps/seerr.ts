@@ -39,6 +39,8 @@ export const seerr: App = {
       const counts = await getJson<RequestCount>(http, `${baseUrl}/api/v1/request/count`, { 'X-Api-Key': credential });
       const pending = counts.pending ?? 0;
       return {
+        busy: pending > 0,
+        attention: pending > 0,
         stats: [
           { label: 'waiting', value: formatCount(pending), tone: pending > 0 ? 'warn' : 'normal' },
           { label: 'processing', value: formatCount(counts.processing ?? 0), tone: 'normal' },

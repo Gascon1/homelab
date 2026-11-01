@@ -1,7 +1,7 @@
 // Dev-only fixture server. Not part of the production bundle (see vite.config.ts).
 // Scenario: ?scenario=<name> on the page URL (forwarded to the API) or RACK_SCENARIO env.
 import type { Plugin } from 'vite';
-import type { Service, State, Status, Widget } from '../src/types';
+import type { Service, State, Status, Widget } from '../../shared/state.ts';
 
 export const SCENARIOS = ['healthy', 'down', 'setup', 'empty', 'many', 'offline', 'drop', 'quiet'] as const;
 type Scenario = (typeof SCENARIOS)[number];
@@ -34,14 +34,19 @@ interface Def {
   sinceMin?: number;
   latency?: number | null;
   widget?: ((tick: number) => Widget | null) | null;
+  featured?: boolean;
 }
 
-const ok = (stats: Widget['stats'], meter: Widget['meter'] = null, type = 'x'): Widget => ({
+// The server's apps state busy and attention themselves; so does each fixture, by hand.
+interface Facts { type?: string; meter?: Widget['meter']; busy?: boolean; attention?: boolean }
+const ok = (stats: Widget['stats'], { type = 'x', meter = null, busy = false, attention = false }: Facts = {}): Widget => ({
   type,
   ok: true,
   error: null,
   stats,
   meter,
+  busy,
+  attention,
 });
 const missing = (type: string, what: string): Widget => ({
   type,
@@ -49,6 +54,8 @@ const missing = (type: string, what: string): Widget => ({
   error: `Add ${what} to .env to see ${type} stats`,
   stats: [],
   meter: null,
+  busy: false,
+  attention: false,
 });
 
 function defs(scn: Scenario): Def[] {
@@ -56,33 +63,33 @@ function defs(scn: Scenario): Def[] {
   const down = scn === 'down';
   return [
     {
-      id: 'plex', name: 'Plex', group: 'Media', icon: '/api/icon/plex', port: 32400, path: '/web', desc: 'Films and TV', latency: 38,
+      id: 'plex', name: 'Plex', group: 'Media', icon: '/api/icon/plex', port: 32400, path: '/web', desc: 'Films and TV', latency: 38, featured: true,
       widget: (t) => (setup ? missing('Plex', 'RACK_PLEX_TOKEN') : ok(
         [{ label: t % 8 < 6 ? 'streams' : 'stream', value: t % 8 < 6 ? '2' : '1', tone: 'normal' }, { label: 'transcoding', value: '1', tone: 'normal' }],
-        { label: 'Bandwidth', value: 0.45 + wobble(1, t, 0.15) }, 'plex')),
+        { type: 'plex', busy: true, meter: { label: 'Bandwidth', value: 0.45 + wobble(1, t, 0.15) } })),
     },
     {
       id: 'seerr', name: 'Seerr', group: 'Media', icon: '/api/icon/seerr', port: 5055, desc: 'Requests', latency: 52,
-      widget: () => (setup ? missing('Seerr', 'RACK_SEERR_API_KEY') : ok([{ label: 'waiting for approval', value: '3', tone: 'warn' }], null, 'seerr')),
+      widget: () => (setup ? missing('Seerr', 'RACK_SEERR_API_KEY') : ok([{ label: 'waiting for approval', value: '3', tone: 'warn' }], { type: 'seerr', busy: true, attention: true })),
     },
     {
       id: 'sonarr', name: 'Sonarr', group: 'Downloads', icon: '/api/icon/sonarr', port: 8989, desc: 'TV shows', latency: 41,
-      widget: () => (setup ? missing('Sonarr', 'RACK_SONARR_API_KEY') : ok([{ label: 'in queue', value: '4', tone: 'normal' }, { label: 'airing today', value: '2', tone: 'normal' }], null, 'sonarr')),
+      widget: () => (setup ? missing('Sonarr', 'RACK_SONARR_API_KEY') : ok([{ label: 'in queue', value: '4', tone: 'normal' }, { label: 'airing today', value: '2', tone: 'normal' }], { type: 'sonarr', busy: true })),
     },
     {
       id: 'radarr', name: 'Radarr', group: 'Downloads', icon: '/api/icon/radarr', port: 7878, desc: 'Films',
       status: down ? 'stopped' : 'up', sinceMin: 95, latency: 36,
-      widget: () => (setup ? missing('Radarr', 'RACK_RADARR_API_KEY') : ok([{ label: 'in queue', value: '1', tone: 'normal' }, { label: 'missing', value: '12', tone: 'warn' }], null, 'radarr')),
+      widget: () => (setup ? missing('Radarr', 'RACK_RADARR_API_KEY') : ok([{ label: 'in queue', value: '1', tone: 'normal' }, { label: 'missing', value: '12', tone: 'warn' }], { type: 'radarr', busy: true, attention: true })),
     },
     {
       id: 'prowlarr', name: 'Prowlarr', group: 'Downloads', icon: '/api/icon/prowlarr', port: 9696, desc: 'Indexers', latency: 29,
-      widget: () => (setup ? missing('Prowlarr', 'RACK_PROWLARR_API_KEY') : ok([{ label: 'indexers', value: '7', tone: 'normal' }, { label: 'failing', value: '1', tone: 'bad' }], null, 'prowlarr')),
+      widget: () => (setup ? missing('Prowlarr', 'RACK_PROWLARR_API_KEY') : ok([{ label: 'indexers', value: '7', tone: 'normal' }, { label: 'failing', value: '1', tone: 'bad' }], { type: 'prowlarr', attention: true })),
     },
     {
-      id: 'qbittorrent', name: 'qBittorrent', group: 'Downloads', icon: '/api/icon/qbittorrent', port: 8080, desc: 'Downloads', latency: 19,
+      id: 'qbittorrent', name: 'qBittorrent', group: 'Downloads', icon: '/api/icon/qbittorrent', port: 8080, desc: 'Downloads', latency: 19, featured: true,
       widget: (t) => (setup ? missing('qBittorrent', 'RACK_QBITTORRENT_PASSWORD') : ok(
         [{ label: 'down', value: `${(12.4 + wobble(2, t, 3)).toFixed(1)} MB/s`, tone: 'normal' }, { label: 'up', value: '1.1 MB/s', tone: 'normal' }],
-        { label: 'Download speed', value: Math.min(1, Math.max(0.05, 0.6 + wobble(2, t, 0.3))) }, 'qbittorrent')),
+        { type: 'qbittorrent', busy: true, meter: { label: 'Download speed', value: Math.min(1, Math.max(0.05, 0.6 + wobble(2, t, 0.3))) } })),
     },
     {
       id: 'flaresolverr', name: 'FlareSolverr', group: 'Downloads', icon: '/api/icon/flaresolverr', port: 8191, desc: 'Cloudflare bypass for indexers',
@@ -91,11 +98,11 @@ function defs(scn: Scenario): Def[] {
     {
       id: 'immich', name: 'Immich', group: 'Photos', icon: '/api/icon/immich', port: 2283, desc: 'Photos', latency: 63,
       status: scn === 'many' ? 'slow' : 'up',
-      widget: () => (setup ? missing('Immich', 'RACK_IMMICH_API_KEY') : ok([{ label: 'photos', value: '48,212', tone: 'normal' }, { label: 'videos', value: '1,904', tone: 'normal' }], null, 'immich')),
+      widget: () => (setup ? missing('Immich', 'RACK_IMMICH_API_KEY') : ok([{ label: 'photos', value: '48,212', tone: 'normal' }, { label: 'videos', value: '1,904', tone: 'normal' }], { type: 'immich' })),
     },
     {
       id: 'netdata', name: 'Netdata', group: 'System', icon: '/api/icon/missing-icon', port: 19999, desc: 'Live graphs', latency: 22,
-      widget: (t) => (setup ? missing('Netdata', 'nothing') : ok([{ label: 'alerts', value: '0', tone: 'good' }, { label: 'cpu', value: `${Math.round(31 + wobble(3, t, 8))}%`, tone: 'normal' }], null, 'netdata')),
+      widget: (t) => (setup ? missing('Netdata', 'nothing') : ok([{ label: 'alerts', value: '0', tone: 'good' }, { label: 'cpu', value: `${Math.round(31 + wobble(3, t, 8))}%`, tone: 'normal' }], { type: 'netdata' })),
     },
   ];
 }
@@ -110,16 +117,16 @@ function build(scn: Scenario, tick: number): State {
   let list = defs(scn);
   if (scn === 'quiet') {
     // Mirrors a calm real server: every count zero, two services without credentials, one Netdata warning.
-    const zero = (type: string, labels: string[]): Widget => ok(labels.map((label) => ({ label, value: '0', tone: 'normal' as const })), null, type);
+    const zero = (type: string, labels: string[]): Widget => ok(labels.map((label) => ({ label, value: '0', tone: 'normal' as const })), { type });
     const q: Record<string, Widget> = {
       plex: zero('plex', ['streams']),
       seerr: zero('seerr', ['waiting']),
       sonarr: zero('sonarr', ['in queue', 'airing today']),
       radarr: zero('radarr', ['in queue', 'missing']),
-      prowlarr: ok([{ label: 'indexers', value: '7', tone: 'normal' }, { label: 'failing', value: '0', tone: 'normal' }], null, 'prowlarr'),
+      prowlarr: ok([{ label: 'indexers', value: '7', tone: 'normal' }, { label: 'failing', value: '0', tone: 'normal' }], { type: 'prowlarr' }),
       qbittorrent: missing('qBittorrent', 'RACK_QBITTORRENT_USERNAME and RACK_QBITTORRENT_PASSWORD'),
       immich: missing('Immich', 'RACK_IMMICH_API_KEY'),
-      netdata: ok([{ label: 'warning', value: '1', tone: 'warn' }], null, 'netdata'),
+      netdata: ok([{ label: 'warning', value: '1', tone: 'warn' }], { type: 'netdata', attention: true }),
     };
     list = list.map((d) => ({ ...d, status: 'up' as Status, widget: q[d.id] ? () => q[d.id]! : null }));
   }
@@ -130,7 +137,7 @@ function build(scn: Scenario, tick: number): State {
       list.push({
         id: n.toLowerCase().replace(/\W+/g, '-'), name: n, group: groups[i % 5]!, icon: i % 4 === 0 ? null : `/api/icon/${n.toLowerCase().replace(/\W+/g, '-')}`,
         port: 3000 + i, desc: 'Another service', latency: 20 + i * 4, status: i === 7 ? 'down' : i === 11 ? 'stopped' : 'up', sinceMin: 40 + i,
-        widget: i % 3 === 0 ? () => ok([{ label: 'items', value: String(100 + i * 13), tone: 'normal' }], null, 'x') : null,
+        widget: i % 3 === 0 ? () => ok([{ label: 'items', value: String(100 + i * 13), tone: 'normal' }], { type: 'x' }) : null,
       });
     });
   }
@@ -153,6 +160,7 @@ function build(scn: Scenario, tick: number): State {
       history: history(d.latency ?? 30, i + 1, tick, status === 'down'),
       container: { name: d.id, image: `example/${d.id}:latest`, state: status === 'stopped' ? 'exited' : 'running', health: null, startedAt: null },
       widget,
+      featured: d.featured === true,
     };
   });
 

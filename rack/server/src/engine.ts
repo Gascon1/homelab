@@ -228,6 +228,7 @@ function toService(resolved: ResolvedService, health: HealthTracker, widget: Wid
       startedAt: container.startedAt,
     },
     widget: widget?.widget ?? null,
+    featured: resolved.featured,
   };
 }
 

@@ -1,33 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
-import type { Service, State } from './types';
+import type { Service } from '../../shared/state.ts';
 import { useRack } from './useRack';
 import { Display } from './Display';
 import { Icon, Lamp, Segments } from './parts';
-import { bytes, clock, linkFor, sinceLabel, STATUS_WORD, uptime } from './format';
+import { clock, isZero, linkFor, sinceLabel, STATUS_WORD } from './format';
+import { describe, hostTiles, summarise, type HostTileData } from './view';
 import { bestScore } from './fuzzy';
 import { pack, sectionWidth, useUnits } from './layout';
 
 interface Target { key: string; kind: 'service' | 'bookmark'; name: string; group: string; href: string | null; svc?: Service; score: number }
-type Tone = 'ok' | 'warn' | 'crit';
-
-/* ---------- reading a service's state ---------- */
-
-const isZero = (v: string) => /^0(\.0+)?(?![\d.,])/.test(v.trim());
-// Counts that mean "something is going on right now", as opposed to inventory like photos or indexers.
-const ACTIVITY = /stream|queue|download|upload|transcod|waiting|active|seeding|request|pulling|playing/i;
-
-function describe(s: Service) {
-  const w = s.widget;
-  const down = s.status === 'down' || s.status === 'stopped';
-  const stats = w?.ok ? w.stats : [];
-  const meterOn = !!w?.ok && !!w.meter && w.meter.value > 0.04;
-  const busy = !down && (meterOn || stats.some((t) => ACTIVITY.test(t.label) && !isZero(t.value)));
-  const attention = !down && (s.status === 'slow' || stats.some((t) => (t.tone === 'warn' || t.tone === 'bad') && !isZero(t.value)));
-  const needsSetup = !down && !!w && !w.ok;
-  const featured = /^(plex|qbittorrent)$/.test(s.id) || !!w?.meter;
-  return { down, stats, busy, attention, needsSetup, featured };
-}
 
 /* ---------- tiles ---------- */
 
@@ -127,46 +109,6 @@ function BookmarkTile({ name, href, group, selected, w }: { name: string; href: 
   );
 }
 
-interface HostTileData { key: string; kind: 'gauge' | 'fact'; label: string; big: string; unit?: string; v?: number; tone: Tone; detail: string }
-
-const toneOf = (p: number, warn: number, crit: number): Tone => (p >= crit ? 'crit' : p >= warn ? 'warn' : 'ok');
-const toneNote: Record<Tone, string> = { ok: '', warn: 'Getting full. ', crit: 'Nearly full. ' };
-/** "5.6 of 8.0 TB" when both sides share a unit. */
-function pair(used: number, total: number): string {
-  const a = bytes(used), b = bytes(total);
-  const [an, au] = a.split(' '), [, bu] = b.split(' ');
-  return au === bu ? `${an} of ${b}` : `${a} of ${b}`;
-}
-
-function hostTiles(host: State['host']): HostTileData[] {
-  const out: HostTileData[] = [];
-  if (host.cpu) {
-    const p = host.cpu.percent;
-    out.push({ key: 'cpu', kind: 'gauge', label: 'Processor', big: String(Math.round(p)), unit: '%', v: p / 100, tone: toneOf(p, 70, 90), detail: `${host.cpu.cores} cores` });
-  }
-  if (host.memory) {
-    const p = (host.memory.usedBytes / host.memory.totalBytes) * 100;
-    const tone = toneOf(p, 80, 92);
-    out.push({ key: 'mem', kind: 'gauge', label: 'Memory', big: String(Math.round(p)), unit: '%', v: p / 100, tone, detail: `${toneNote[tone]}${pair(host.memory.usedBytes, host.memory.totalBytes)}` });
-  }
-  for (const dk of host.disks) {
-    const p = (dk.usedBytes / dk.totalBytes) * 100;
-    const tone = toneOf(p, 80, 92);
-    out.push({ key: `disk:${dk.path}`, kind: 'gauge', label: `Disk, ${dk.label}`, big: String(Math.round(p)), unit: '%', v: p / 100, tone, detail: `${toneNote[tone]}${pair(dk.usedBytes, dk.totalBytes)}` });
-  }
-  if (host.uptimeSeconds != null) {
-    const u = uptime(host.uptimeSeconds);
-    const [n, ...rest] = u.split(' ');
-    out.push({ key: 'up', kind: 'fact', label: 'Uptime', big: n!, unit: rest.join(' '), tone: 'ok', detail: 'Since last restart' });
-  }
-  if (host.load) out.push({ key: 'load', kind: 'fact', label: 'Load', big: host.load[0].toFixed(2), tone: 'ok', detail: `${host.load[1].toFixed(2)} 5 min, ${host.load[2].toFixed(2)} 15 min` });
-  if (host.tempC != null) {
-    const t = host.tempC;
-    out.push({ key: 'temp', kind: 'fact', label: 'Temperature', big: String(Math.round(t)), unit: '°C', tone: t >= 85 ? 'crit' : t >= 70 ? 'warn' : 'ok', detail: t >= 85 ? 'Running hot' : t >= 70 ? 'Warm' : 'Normal' });
-  }
-  return out;
-}
-
 function HostTile({ t, w }: { t: HostTileData; w: number }) {
   return (
     <li class={`tile host host-${t.kind} tone-${t.tone}`} style={{ gridColumn: `span ${w}` }}>
@@ -196,15 +138,6 @@ function Section({ title, summary, summaryTone, span, children }: { title: strin
       {children}
     </section>
   );
-}
-
-function summarise(svcs: Service[]): { text: string; tone: string } {
-  const bad = svcs.filter((s) => s.status === 'down' || s.status === 'stopped');
-  if (bad.length) return { text: `${bad.length} ${bad.length === 1 ? 'needs' : 'need'} attention`, tone: 'is-bad' };
-  const busy = svcs.filter((s) => describe(s).busy).length;
-  const attn = svcs.filter((s) => describe(s).attention).length;
-  if (attn) return { text: `${attn} to look at`, tone: 'is-warn' };
-  return busy ? { text: `${busy} busy`, tone: 'is-busy' } : { text: 'All quiet', tone: '' };
 }
 
 export function App() {

@@ -380,3 +380,55 @@ test('qBittorrent scales the meter against the fastest recent speed, per service
     },
   );
 });
+
+// ---- what the numbers mean --------------------------------------------------------------------
+
+test('each app says for itself whether it is busy or needs a look', async () => {
+  const facts = async (id: string, vars: Record<string, string>, handler: Parameters<typeof fakeServer>[0]) =>
+    withUpstream(handler, async (url) => {
+      const { widget } = await runner(vars).run(byId(id), target(byId(id), url));
+      return [widget.busy, widget.attention];
+    });
+
+  const plex = (size: number) => (_req: unknown, res: Parameters<typeof json>[0]) => json(res, { MediaContainer: { size, Metadata: Array.from({ length: size }, () => ({})) } });
+  assert.deepEqual(await facts('plex', { RACK_PLEX_TOKEN: 't' }, plex(0)), [false, false]);
+  assert.deepEqual(await facts('plex', { RACK_PLEX_TOKEN: 't' }, plex(1)), [true, false]);
+
+  const arr = (queue: number) => (_req: unknown, res: Parameters<typeof json>[0]) => json(res, { totalRecords: queue });
+  assert.deepEqual(await facts('radarr', { RACK_RADARR_API_KEY: 'k' }, arr(0)), [false, false]);
+  assert.deepEqual(await facts('radarr', { RACK_RADARR_API_KEY: 'k' }, arr(2)), [true, false]);
+
+  const seerr = (pending: number) => (_req: unknown, res: Parameters<typeof json>[0]) => json(res, { pending, processing: 4 });
+  assert.deepEqual(await facts('seerr', { RACK_SEERR_API_KEY: 'k' }, seerr(0)), [false, false]);
+  assert.deepEqual(await facts('seerr', { RACK_SEERR_API_KEY: 'k' }, seerr(2)), [true, true]);
+
+  const prowlarr = (failing: number) => (req: { url?: string }, res: Parameters<typeof json>[0]) =>
+    json(res, req.url === '/api/v1/indexer' ? [{}, {}] : Array.from({ length: failing }, () => ({})));
+  assert.deepEqual(await facts('prowlarr', { RACK_PROWLARR_API_KEY: 'k' }, prowlarr(0)), [false, false]);
+  assert.deepEqual(await facts('prowlarr', { RACK_PROWLARR_API_KEY: 'k' }, prowlarr(1)), [false, true]);
+
+  const netdata = (alarms: object) => (_req: unknown, res: Parameters<typeof json>[0]) => json(res, { alarms });
+  assert.deepEqual(await facts('netdata', {}, netdata({ warning: 0, critical: 0 })), [false, false]);
+  assert.deepEqual(await facts('netdata', {}, netdata({ warning: 1 })), [false, true]);
+  assert.deepEqual(await facts('netdata', {}, netdata({ critical: 1 })), [false, true]);
+
+  const flare = (msg: string) => (_req: unknown, res: Parameters<typeof json>[0]) => json(res, { msg, version: '3' });
+  assert.deepEqual(await facts('flaresolverr', {}, flare('FlareSolverr is ready!')), [false, false]);
+  assert.deepEqual(await facts('flaresolverr', {}, flare('starting')), [false, true]);
+
+  const qbt = (speed: number, active: number) => (req: { url?: string }, res: Parameters<typeof json>[0]) =>
+    req.url === '/api/v2/transfer/info' ? json(res, { dl_info_speed: speed, up_info_speed: 0 }) : json(res, Array.from({ length: active }, () => ({})));
+  assert.deepEqual(await facts('qbittorrent', {}, qbt(0, 0)), [false, false]);
+  assert.deepEqual(await facts('qbittorrent', {}, qbt(0, 1)), [true, false]);
+  assert.deepEqual(await facts('qbittorrent', {}, qbt(5_000_000, 0)), [true, false]);
+});
+
+test('a widget that could not run is neither busy nor in need of a look', async () => {
+  const out = await runner().run(byId('plex'), target(byId('plex'), 'http://127.0.0.1:1'));
+  assert.equal(out.widget.ok, false);
+  assert.deepEqual([out.widget.busy, out.widget.attention], [false, false]);
+});
+
+test('only Plex and qBittorrent are featured', () => {
+  assert.deepEqual(APPS.filter((a) => a.featured).map((a) => a.id), ['plex', 'qbittorrent']);
+});

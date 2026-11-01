@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import type { Service, Status } from './types';
+import type { Service, Status } from '../../shared/state.ts';
 
 export function Lamp({ status }: { status: Status }) {
   return (

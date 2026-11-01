@@ -38,7 +38,7 @@ function describeFailure(err: unknown, app: App, name: string): string {
 }
 
 export function failedWidget(type: string, error: string): WidgetOutcome {
-  return { widget: { type, ok: false, error, stats: [], meter: null }, lines: [] };
+  return { widget: { type, ok: false, error, stats: [], meter: null, busy: false, attention: false }, lines: [] };
 }
 
 /** Runs apps' widgets: finds the credential, keeps per-service memory, and turns every failure into a plain sentence. */
@@ -63,7 +63,7 @@ export class AppRunner {
       if (!memory) this.memory.set(target.serviceId, (memory = {}));
       const data = await widget.fetch({ ...target, credential, http: this.http, memory });
       return {
-        widget: { type: app.id, ok: true, error: null, stats: data.stats, meter: data.meter ?? null },
+        widget: { type: app.id, ok: true, error: null, stats: data.stats, meter: data.meter ?? null, busy: data.busy, attention: data.attention },
         lines: data.lines ?? [],
       };
     } catch (err) {
