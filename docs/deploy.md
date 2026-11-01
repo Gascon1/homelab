@@ -108,6 +108,10 @@ Delete the repository secrets `DEPLOY_HOOK_SECRET`, `TS_OAUTH_CLIENT_ID` and `TS
 - **A run says "gate pending".** The `release` check was not green yet. The hourly timer deploys later, or re-run the failed `notify` job.
 - **`notify` is red.** A red `notify` does not change the `release` check, so the deploy gate is not affected.
 
+## qBittorrent VPN key
+
+qBittorrent runs behind gluetun, which reads the NordVPN WireGuard key from `${APPDATA}/gluetun/wireguard_private_key` (see `docs/qbittorrent.md`). Create that file on the server **before** the deploy that adds gluetun lands. Without it gluetun cannot start, `docker compose up --wait` fails and the deploy rolls back.
+
 ## Security model
 
 - **Why pull-based.** The repo is public. A self-hosted runner would run code from fork pull requests on your server. An SSH or Tailscale connection from GitHub would put a key to your house on GitHub. With pull, GitHub never gets a login to the server. The server makes outbound HTTPS requests. The optional doorbell (above) only lets a tagged CI node send a signed "check now" message to one port.

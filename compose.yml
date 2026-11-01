@@ -112,12 +112,43 @@ services:
       - rack.enable=true
     restart: unless-stopped
 
+  # qBittorrent runs in gluetun's network namespace, so all its traffic goes through
+  # NordVPN and the firewall blocks anything outside the tunnel. See docs/qbittorrent.md.
+  gluetun:
+    image: qmcgaw/gluetun:v3.41.3
+    container_name: gluetun
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    networks:
+      homelab:
+        aliases: [qbittorrent] # Sonarr, Radarr, Caddy and Rack keep using qbittorrent:8080
+    environment:
+      - TZ=${TZ}
+      - VPN_SERVICE_PROVIDER=nordvpn
+      - VPN_TYPE=wireguard
+      - SERVER_COUNTRIES=${VPN_SERVER_COUNTRIES:-Canada}
+      - SERVER_CATEGORIES=P2P # also keeps out Dedicated IP / Double VPN servers
+      # WIREGUARD_PRIVATE_KEY is read from /run/secrets/wireguard_private_key (gluetun's default)
+    secrets:
+      - wireguard_private_key
+    ports:
+      - '${BIND_ADDR:-0.0.0.0}:8080:8080' # qBittorrent Web UI (no torrent port: Nord has no port forwarding)
+    # No rack.* labels: the qBittorrent card stays on the qbittorrent container
+    restart: unless-stopped
+    logging: *logging
+
   qbittorrent:
-    <<: *ls-common
+    # No x-ls-common anchor: it adds `networks`, which Compose rejects with network_mode
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
+    network_mode: 'service:gluetun'
+    depends_on:
+      gluetun:
+        condition: service_healthy
+        restart: true
     environment:
-      # a service-level list replaces the anchor's list, so repeat the shared vars
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
@@ -126,15 +157,20 @@ services:
     volumes:
       - ${APPDATA}/qbittorrent:/config
       - ${DATA_DIR}/torrents:/data/torrents
-    ports:
-      - '${BIND_ADDR:-0.0.0.0}:8080:8080'
-      # Torrent ports stay on all interfaces: peers must reach them
-      - '6881:6881'
-      - '6881:6881/udp'
+    healthcheck:
+      # gluetun's health server, reachable only inside the shared namespace: fails when the
+      # tunnel is down or when gluetun was restarted without qBittorrent (stale namespace)
+      test: ['CMD', 'curl', '-fsS', '-m', '5', 'http://127.0.0.1:9999/']
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     labels:
       - rack.enable=true
-      - rack.port=8080 # Web UI; the default (lowest published port) would pick 6881
+      - rack.port=8080 # no published ports on this container; Rack uses http://qbittorrent:8080 via the gluetun alias
     stop_grace_period: 30s # Let qB save state cleanly
+    restart: unless-stopped
+    logging: *logging
 
   radarr:
     <<: *ls-common
@@ -370,6 +406,11 @@ services:
       - no-new-privileges:true
     restart: unless-stopped
     logging: *logging
+
+# Created by hand, never in git: see docs/qbittorrent.md
+secrets:
+  wireguard_private_key:
+    file: ${APPDATA}/gluetun/wireguard_private_key # chmod 600
 
 volumes:
   model-cache:

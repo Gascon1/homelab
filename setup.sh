@@ -74,6 +74,7 @@ APPDATA_DIRS=(
     # Media stack
     "${APPDATA}/plex"
     "${APPDATA}/qbittorrent"
+    "${APPDATA}/gluetun"
     "${APPDATA}/radarr"
     "${APPDATA}/sonarr"
     "${APPDATA}/prowlarr"
@@ -201,6 +202,11 @@ PUID_DIRS=(
 for dir in "${PUID_DIRS[@]}"; do
     chown -R "${PUID}:${PGID}" "$dir" 2>/dev/null || log_warn "Could not set ownership on $dir (may need sudo)"
 done
+# gluetun runs as root; its folder holds the NordVPN WireGuard key
+chmod 700 "${APPDATA}/gluetun" 2>/dev/null || log_warn "Could not restrict permissions on ${APPDATA}/gluetun"
+if [[ ! -f "${APPDATA}/gluetun/wireguard_private_key" ]]; then
+    log_warn "Missing ${APPDATA}/gluetun/wireguard_private_key: gluetun and qBittorrent will not start. See docs/qbittorrent.md"
+fi
 # Tailscale state holds the node's private key
 chmod 700 "${APPDATA}/tailscale" 2>/dev/null || log_warn "Could not restrict permissions on ${APPDATA}/tailscale"
 
