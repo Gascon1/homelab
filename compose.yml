@@ -1,6 +1,12 @@
 name: homelab
 
 # ---------- DRY helpers ----------
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
 x-ls-common: &ls-common
   restart: unless-stopped
   environment:
@@ -11,11 +17,7 @@ x-ls-common: &ls-common
     - UMASK=002
   networks:
     - homelab
-  logging:
-    driver: json-file
-    options:
-      max-size: '10m'
-      max-file: '3'
+  logging: *logging
 
 # ---------- Services ----------
 services:
@@ -28,7 +30,7 @@ services:
       - TZ=${TZ}
       - PORT=5055 #optional
     ports:
-      - ${BIND_ADDR:-0.0.0.0}:5055:5055
+      - '${BIND_ADDR:-0.0.0.0}:5055:5055'
     volumes:
       - ${APPDATA}/seerr:/app/config
     healthcheck:
@@ -76,11 +78,7 @@ services:
       retries: 3
       start_period: 10s
     restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: '10m'
-        max-file: '3'
+    logging: *logging
 
   plex:
     image: lscr.io/linuxserver/plex:latest
@@ -314,11 +312,7 @@ services:
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: '10m'
-        max-file: '3'
+    logging: *logging
 
   caddy:
     image: caddy:2.11.7
@@ -347,11 +341,7 @@ services:
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: '10m'
-        max-file: '3'
+    logging: *logging
 
 volumes:
   model-cache:

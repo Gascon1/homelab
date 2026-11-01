@@ -1,3 +1,7 @@
+# When you add a service, also update: compose.yml (the service and its port),
+# this file (site block below), docs/remote-access/tailscale-policy.example.hujson
+# (only if the family group should reach it), README.md (services table) and
+# docs/<service>.md. This list is a deliberate allowlist: do not generate it.
 # Single HTTPS entrypoint for the tailnet. See docs/remote-access/.
 # The certificate for {$CADDY_DOMAIN} (a *.ts.net name) comes from tailscaled
 # through /var/run/tailscale/tailscaled.sock; no ACME account or DNS token is needed.
@@ -10,7 +14,7 @@
 	admin off
 }
 
-(common) {
+(security_headers) {
 	header {
 		Strict-Transport-Security "max-age=31536000"
 		-Server
@@ -19,54 +23,52 @@
 
 # Rack dashboard (also on :4000 so its own link works)
 {$CADDY_DOMAIN}, {$CADDY_DOMAIN}:4000 {
-	import common
+	import security_headers
 	reverse_proxy rack:4000
 }
 
 {$CADDY_DOMAIN}:5055 {
-	import common
+	import security_headers
 	reverse_proxy seerr:5055
 }
 
 {$CADDY_DOMAIN}:32400 {
-	import common
+	import security_headers
 	reverse_proxy plex:32400
 }
 
 {$CADDY_DOMAIN}:8080 {
-	import common
+	import security_headers
 	reverse_proxy qbittorrent:8080
 }
 
 {$CADDY_DOMAIN}:7878 {
-	import common
+	import security_headers
 	reverse_proxy radarr:7878
 }
 
 {$CADDY_DOMAIN}:8989 {
-	import common
+	import security_headers
 	reverse_proxy sonarr:8989
 }
 
 {$CADDY_DOMAIN}:9696 {
-	import common
+	import security_headers
 	reverse_proxy prowlarr:9696
 }
 
 {$CADDY_DOMAIN}:2283 {
-	import common
-	reverse_proxy immich-server:2283 {
-		header_up X-Real-IP {remote_host}
-	}
+	import security_headers
+	reverse_proxy immich-server:2283
 }
 
 {$CADDY_DOMAIN}:19999 {
-	import common
+	import security_headers
 	reverse_proxy netdata:19999
 }
 
 {$CADDY_DOMAIN}:8181 {
-	import common
+	import security_headers
 	reverse_proxy filebrowser:80
 }
 

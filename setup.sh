@@ -186,7 +186,7 @@ log_info "Setting ownership to ${PUID}:${PGID}..."
 # Only set ownership on directories we created (avoid changing external mounts)
 chown -R "${PUID}:${PGID}" "${APPDATA}" 2>/dev/null || log_warn "Could not set ownership on ${APPDATA} (may need sudo)"
 # Tailscale state holds the node's private key
-chmod 700 "${APPDATA}/tailscale" 2>/dev/null || true
+chmod 700 "${APPDATA}/tailscale" 2>/dev/null || log_warn "Could not restrict permissions on ${APPDATA}/tailscale"
 
 if [[ -d "${DATA_DIR}" ]]; then
     chown -R "${PUID}:${PGID}" "${DATA_DIR}" 2>/dev/null || log_warn "Could not set ownership on ${DATA_DIR} (may need sudo)"
@@ -197,54 +197,17 @@ if [[ -d "${UPLOAD_LOCATION}" ]]; then
 fi
 
 # =============================================================================
-# Create .env.example if not exists
+# Check .env.example (the only template; do not keep a second copy in this script)
 # =============================================================================
 
-ENV_EXAMPLE="${SCRIPT_DIR}/.env.example"
-if [[ ! -f "${ENV_EXAMPLE}" ]]; then
-    log_info "Creating .env.example template..."
-    cat > "${ENV_EXAMPLE}" << 'EOF'
-# User/Group IDs (run `id` to find yours)
-PUID=1000
-PGID=1000
-
-# Timezone
-TZ=America/Montreal
-
-# Paths
-APPDATA=./appdata
-DATA_DIR=/srv/data
-
-# Address web UIs are published on (set to your LAN IP, e.g. 192.168.1.10)
-BIND_ADDR=0.0.0.0
-
-# Immich
-IMMICH_VERSION=release
-UPLOAD_LOCATION=/srv/data/media/photos
-DB_DATA_LOCATION=./appdata/immich/postgres
-DB_PASSWORD=change-me-to-a-secure-password
-DB_USERNAME=postgres
-DB_DATABASE_NAME=immich
-
-# =============================================================================
-# Rack (Dashboard) - all optional
-# =============================================================================
-
-# Immich API key: Immich > Account Settings > API Keys > New API Key
-RACK_IMMICH_API_KEY=
-
-# qBittorrent Web UI login: Tools > Options > Web UI > Authentication
-RACK_QBITTORRENT_USERNAME=
-RACK_QBITTORRENT_PASSWORD=
-
-# Normally discovered automatically from each app's config; set only to override
-# RACK_PLEX_TOKEN=
-# RACK_SONARR_API_KEY=
-# RACK_RADARR_API_KEY=
-# RACK_PROWLARR_API_KEY=
-# RACK_SEERR_API_KEY=
-EOF
-    log_info "Created: ${ENV_EXAMPLE}"
+if [[ ! -f "${SCRIPT_DIR}/.env.example" ]]; then
+    log_warn ".env.example is missing. Restore it with: git checkout .env.example"
+    if git -C "${SCRIPT_DIR}" show HEAD:.env.example > "${SCRIPT_DIR}/.env.example" 2>/dev/null; then
+        log_info "Restored .env.example from git"
+    else
+        rm -f "${SCRIPT_DIR}/.env.example"
+        log_warn "Could not restore it automatically (not a git checkout?)"
+    fi
 fi
 
 # =============================================================================
