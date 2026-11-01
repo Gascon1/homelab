@@ -21,6 +21,8 @@ FlareSolverr (8191) is not published on the host; Prowlarr reaches it at `http:/
 
 ## Quick Start
 
+Building a new server? Follow [docs/SETUP.md](docs/SETUP.md). It lists every step in order, including the manual ones (accounts, VPN key, app logins, router, Tailscale, GitHub), and every file and setting that lives outside git.
+
 ```bash
 # Clone the repository
 git clone https://github.com/<your-username>/homelab.git
