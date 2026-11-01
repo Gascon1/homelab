@@ -6,7 +6,7 @@
 # `curl` on PATH, and runs deploy.sh through its main scenarios. No network, no
 # real Docker. Usage: scripts/test-deploy.sh
 set -euo pipefail
-unset GITHUB_TOKEN COMPOSE_PROFILES RACK_TAG RACK_SOURCE
+unset GITHUB_TOKEN COMPOSE_PROFILES RACK_TAG RACK_SOURCE TRIGGER_FILE TOUCH_ON_UP
 
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 T="$(mktemp -d)"
@@ -38,6 +38,9 @@ absent() { [[ ! -e "$1" ]]; }
 cat > "$BIN/docker" << 'STUB'
 #!/usr/bin/env bash
 echo "docker $* [RACK_TAG=${RACK_TAG:-}] [PROFILES=${COMPOSE_PROFILES-unset}]" >> "$CALLS_LOG"
+if [[ "${1:-}" == "compose" && "${2:-}" == "up" && -n "${TOUCH_ON_UP:-}" ]]; then
+    touch "$TOUCH_ON_UP" # simulates the doorbell ringing while a deploy runs
+fi
 if [[ "${1:-}" == "compose" && "${2:-}" == "up" && -n "${FAIL_UP_TAG:-}" && "${RACK_TAG:-}" == "$FAIL_UP_TAG" ]]; then
     echo "stub: unhealthy" >&2
     exit 1
@@ -211,6 +214,29 @@ SHA5="$(head_of "$DEV")"
 expect_call "docker compose build rack \[RACK_TAG=sha-${SHA5}\]"
 expect_no_call "docker compose pull"
 : > "$T/deploy.env"
+
+echo "10. doorbell rings during a deploy: one more check afterwards"
+new_commit v8
+SHA8="$(head_of "$DEV")"
+GATE=success TRIGGER_FILE="$T/trigger" TOUCH_ON_UP="$T/trigger" run 0
+expect_out "DEPLOYED"
+expect_out "trigger arrived during this run"
+expect_out "up to date"
+check "host at new commit" same "$(head_of "$HOST")" "$SHA8"
+echo "10b. trigger unchanged during the run: no extra check"
+new_commit v9
+GATE=success TRIGGER_FILE="$T/trigger" run 0
+expect_out "DEPLOYED"
+check "no re-check" not_in "trigger arrived" "$T/out"
+echo "10c. lock held by another run: no re-check from the loser"
+new_commit v10
+exec 8> "$HOST/.deploy-state/deploy.lock"
+flock -n 8
+GATE=success TRIGGER_FILE="$T/trigger" run 0
+check "loser exits quietly" not_in "trigger arrived" "$T/out"
+expect_out "another deploy is running"
+exec 8>&-
+rm -f "$T/trigger"
 
 echo
 echo "passed: ${PASS}, failed: ${FAIL}"

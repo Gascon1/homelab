@@ -8,6 +8,8 @@
 {
 	"tagOwners": {
 		"tag:homelab": ["autogroup:admin"],
+		// GitHub Actions runner that joins briefly to ring the push-deploy doorbell
+		"tag:ci": ["autogroup:admin"],
 	},
 
 	"groups": {
@@ -22,6 +24,9 @@
 		// Family: Plex 32400, Immich 2283, Seerr 5055 only (no Rack, Netdata, *arr, qBittorrent, File Browser)
 		{"src": ["group:family"], "dst": ["tag:homelab"], "ip": ["tcp:32400", "tcp:2283", "tcp:5055"]},
 
+		// GitHub Actions (tag:ci, ephemeral): the deploy-hook port 9000 and nothing else
+		{"src": ["tag:ci"], "dst": ["tag:homelab"], "ip": ["tcp:9000"]},
+
 		// Everyone's own devices can still talk to each other
 		{"src": ["autogroup:member"], "dst": ["autogroup:self"], "ip": ["*"]},
 	],
@@ -32,7 +37,12 @@
 		{
 			"src": "family-member@example.com",
 			"accept": ["tag:homelab:32400", "tag:homelab:2283", "tag:homelab:5055"],
-			"deny": ["tag:homelab:4000", "tag:homelab:443", "tag:homelab:8080", "tag:homelab:19999"],
+			"deny": ["tag:homelab:4000", "tag:homelab:443", "tag:homelab:8080", "tag:homelab:19999", "tag:homelab:9000"],
+		},
+		{
+			"src": "tag:ci",
+			"accept": ["tag:homelab:9000"],
+			"deny": ["tag:homelab:4000", "tag:homelab:443", "tag:homelab:8080", "tag:homelab:19999", "tag:homelab:22"],
 		},
 	],
 }

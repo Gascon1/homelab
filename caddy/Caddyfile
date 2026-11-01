@@ -72,6 +72,13 @@
 	reverse_proxy filebrowser:80
 }
 
+# Push-deploy doorbell for GitHub Actions (tag:ci may reach only this port; see
+# docs/deploy.md). The hook checks the HMAC; family and admins do not need this port.
+{$CADDY_DOMAIN}:9000 {
+	import security_headers
+	reverse_proxy deploy-hook:9000
+}
+
 # Container healthcheck only; returns a constant
 http://:8099 {
 	bind 127.0.0.1

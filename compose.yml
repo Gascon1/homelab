@@ -316,6 +316,41 @@ services:
     restart: unless-stopped
     logging: *logging
 
+  # Push-deploy doorbell: GitHub Actions rings it over the tailnet after `release` is
+  # green. It only verifies an HMAC and touches ${APPDATA}/deploy-hook/trigger; a systemd
+  # path unit then runs scripts/deploy.sh, which does all the checks. See docs/deploy.md.
+  deploy-hook:
+    image: python:3.13.18-alpine
+    container_name: deploy-hook
+    profiles: [remote]
+    networks: [homelab]
+    # No ports (Caddy serves :9000 on the tailnet), no Docker socket
+    user: '${PUID}:${PGID}'
+    command: ['python', '-u', '/app/hook.py']
+    environment:
+      - DEPLOY_HOOK_SECRET=${DEPLOY_HOOK_SECRET:-}
+    volumes:
+      - ./deploy-hook/hook.py:/app/hook.py:ro
+      - ${APPDATA}/deploy-hook:/trigger
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request as u; u.urlopen('http://127.0.0.1:9000/healthz', timeout=3)
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    logging: *logging
+
   caddy:
     image: caddy:2.11.7
     container_name: caddy
@@ -326,6 +361,8 @@ services:
       tailscale:
         condition: service_healthy
         restart: true
+      # No depends_on for deploy-hook on purpose: Caddy resolves it per request, so a
+      # crashed or misconfigured hook must not take the other tailnet sites down.
     environment:
       - CADDY_DOMAIN=${TS_HOSTNAME:-homelab}.${TS_TAILNET:-tailnet-name.ts.net}
     volumes:

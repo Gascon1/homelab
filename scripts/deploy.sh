@@ -22,6 +22,9 @@
 #   RACK_SOURCE    registry (default): pull the rack image from GHCR;
 #                  build: build it on this host (for a private repo/image)
 #   PRUNE          1 (default) prunes old rack images after a good deploy
+#   TRIGGER_FILE   file the push doorbell touches (default: <APPDATA>/deploy-hook/trigger,
+#                  APPDATA from .env, default <repo>/appdata). If it changes during
+#                  a run, the run is repeated once so that trigger is not lost
 #   PULL_ALL       0 (default): pull only rack, plus all images when a
 #                  compose*.yml file changed; 1: pull every image each deploy
 # =============================================================================
@@ -65,6 +68,10 @@ load_env() {
         fi
     done < "$1"
 }
+
+# Modification time (ns) of the doorbell trigger file; empty if it does not exist.
+# TRIGGER_FILE is relative to the repo (cwd) when APPDATA is.
+trigger_stamp() { stat -c %.9Y "${TRIGGER_FILE:-/nonexistent}" 2> /dev/null || true; }
 
 # shellcheck disable=SC2329  # invoked through trap
 on_exit() {
@@ -138,6 +145,13 @@ main() {
         profiles_from=".env"
     fi
     [[ -n "$profiles" ]] || profiles_from="none set"
+    if [[ -z "${TRIGGER_FILE:-}" ]]; then
+        local appdata="${APPDATA:-}"
+        if [[ -z "$appdata" && -r .env ]]; then
+            appdata="$(load_env .env > /dev/null 2>&1; printf '%s' "${APPDATA:-}")" || appdata=""
+        fi
+        TRIGGER_FILE="${appdata:-./appdata}/deploy-hook/trigger"
+    fi
 
     # ---- lock ---------------------------------------------------------------
     # In STATE_DIR (not /tmp), so a manual run and the timer share one lock
@@ -148,6 +162,8 @@ main() {
         log "another deploy is running (lock ${lock}), exiting"
         return 0
     fi
+    # Remember the doorbell state: main() callers re-run once if it changed meanwhile
+    TRIGGER_AT_START="$(trigger_stamp)"
 
     # ---- 1. fetch -----------------------------------------------------------
     git fetch --quiet "$REMOTE" "$BRANCH" || die "git fetch ${REMOTE} ${BRANCH} failed"
@@ -312,4 +328,16 @@ main() {
     return 2
 }
 
-main "$@"; exit $?
+# A doorbell that rings while a run is in progress finds the lock taken and the
+# service already active, so systemd drops it. Repeat once if the trigger file
+# changed since this run took the lock (bounded: at most one extra run).
+main_with_recheck() {
+    unset TRIGGER_AT_START
+    main "$@" # a failure exits here (set -e), with main's exit code
+    if [[ $DRY_RUN -eq 0 && -n "${TRIGGER_AT_START+x}" && "$(trigger_stamp)" != "$TRIGGER_AT_START" ]]; then
+        log "trigger arrived during this run, checking once more"
+        main "$@"
+    fi
+}
+
+main_with_recheck "$@"; exit $?

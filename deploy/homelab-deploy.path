@@ -1,0 +1,12 @@
+# Template: deploy/install.sh replaces @APPDATA@ and installs this file to
+# /etc/systemd/system/. Do not copy it by hand.
+[Unit]
+Description=Push-deploy doorbell: start a deploy check when the hook writes its trigger file
+
+[Path]
+# Written by the deploy-hook container (deploy-hook/hook.py) after it verifies a signed request.
+PathModified=@APPDATA@/deploy-hook/trigger
+Unit=homelab-deploy.service
+
+[Install]
+WantedBy=paths.target

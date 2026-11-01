@@ -95,6 +95,7 @@ APPDATA_DIRS=(
     "${APPDATA}/tailscale"
     "${APPDATA}/caddy/data"
     "${APPDATA}/caddy/config"
+    "${APPDATA}/deploy-hook"
 
     # Immich database
     "${DB_DATA_LOCATION}"

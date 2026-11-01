@@ -55,3 +55,51 @@ jobs:
             org.opencontainers.image.description=Homelab rack dashboard
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # Doorbell: tells the server to deploy now. It carries no authority; deploy.sh
+  # re-checks the `release` check run with GitHub before it changes anything.
+  # A failure here never fails `release`, so the deploy gate is not affected.
+  # Without the secrets (forks, fresh repos) the job passes and the hourly timer deploys.
+  notify:
+    needs: release
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Check that push deploy is configured
+        id: cfg
+        env:
+          TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          TS_OAUTH_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
+          DEPLOY_HOOK_SECRET: ${{ secrets.DEPLOY_HOOK_SECRET }}
+          TS_HOST: ${{ vars.TS_HOST }}
+        run: |
+          if [ -n "$TS_OAUTH_CLIENT_ID" ] && [ -n "$TS_OAUTH_SECRET" ] \
+            && [ -n "$DEPLOY_HOOK_SECRET" ] && [ -n "$TS_HOST" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::push deploy not configured; the timer fallback will deploy"
+          fi
+      - name: Join the tailnet
+        if: steps.cfg.outputs.configured == 'true'
+        uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4.4.0
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+      - name: Ring the doorbell
+        if: steps.cfg.outputs.configured == 'true'
+        env:
+          DEPLOY_HOOK_SECRET: ${{ secrets.DEPLOY_HOOK_SECRET }}
+          TS_HOST: ${{ vars.TS_HOST }}
+        run: |
+          body="$(jq -nc --arg sha "$GITHUB_SHA" --argjson ts "$(date +%s)" '{sha: $sha, ts: $ts}')"
+          sig="$(printf '%s' "$body" | openssl dgst -sha256 -hmac "$DEPLOY_HOOK_SECRET" | sed 's/^.* //')"
+          curl --fail --silent --show-error --max-time 20 --retry 3 --retry-all-errors \
+            -X POST "https://${TS_HOST}:9000/deploy" \
+            -H "Content-Type: application/json" \
+            -H "X-Signature-256: sha256=${sig}" \
+            --data-binary "$body"
+          echo

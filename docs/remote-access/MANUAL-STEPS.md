@@ -53,9 +53,14 @@ The tasks make your homelab safe. Then they let you reach it from outside your h
 | [ ] | 27. Install the deploy timer | Run `deploy/install.sh` | 3 min |
 | [ ] | 28. Dry run | Test the deploy script with no change | 3 min |
 | [ ] | 29. Examine the timer and logs | Check that the timer runs | 3 min |
-| [ ] | 30. Test with a small pull request | Make sure an automatic deploy works | 15 min |
-| [ ] | 31. Pause and roll back | Stop the timer. Go back to an old version | 5 min |
-| [ ] | 32. If the repository is private (optional) | Set the token, deploy key and build mode | 20 min |
+| [ ] | 30. Deploy hook secret | Make the secret. Put it in `.env` and in GitHub | 5 min |
+| [ ] | 31. Push deploy rules | Paste the policy file that has `tag:ci` | 5 min |
+| [ ] | 32. Tailscale OAuth client | Make the client. Put its values in GitHub | 10 min |
+| [ ] | 33. Repository variable | Add `TS_HOST` in GitHub | 3 min |
+| [ ] | 34. Start the deploy hook | Restart the `remote` profile. Install the path unit | 5 min |
+| [ ] | 35. Test with a small pull request | Make sure an automatic deploy works | 10 min |
+| [ ] | 36. Pause and roll back | Stop the deploy units. Go back to an old version | 5 min |
+| [ ] | 37. If the repository is private (optional) | Set the token, deploy key and build mode | 20 min |
 
 ---
 
@@ -672,7 +677,7 @@ Do these tasks once. Then the server deploys each change from the `main` branch 
 **Result:** The package page shows the label "Public".
 
 > **NOTE**
-> If the repository stays private, do Task 32 instead.
+> If the repository stays private, do Task 37 instead.
 
 ### Task 24. Protect the main branch
 
@@ -684,7 +689,7 @@ Do these tasks once. Then the server deploys each change from the `main` branch 
 4. Set the branch name pattern to `main`.
 5. Turn on "Require a pull request before merging".
 6. Turn on "Require status checks to pass".
-7. Add the four checks from the workflow `ci.yml`: `compose`, `shell`, `rack` and `image`.
+7. Add the five checks from the workflow `ci.yml`: `compose`, `shell`, `hook`, `rack` and `image`.
 8. Do not add the check `release`. It runs only after the merge. A pull request cannot get it, so the pull request cannot merge.
 9. Turn on "Block force pushes".
 10. Turn on "Restrict deletions".
@@ -753,7 +758,7 @@ jq --version && curl --version | head -n 1
 
 ### Task 27. Install the deploy timer
 
-**Why:** The timer starts the deploy script every 3 minutes.
+**Why:** The timer starts the deploy script every hour. It is the fallback when the push trigger (Tasks 30 to 34) does not work.
 
 **Before you start:** Make sure your user is in the `docker` group. Type `id` to see your groups.
 
@@ -799,7 +804,7 @@ jq --version && curl --version | head -n 1
 systemctl list-timers homelab-deploy.timer
 ```
 
-2. Make sure the NEXT column shows a time in the next few minutes.
+2. Make sure the NEXT column shows a time in the next hour.
 3. Show the last 50 log lines.
 
 ```bash
@@ -810,51 +815,195 @@ journalctl -u homelab-deploy -n 50
 
 **Result:** The timer is active. The log has lines from the deploy script.
 
-### Task 30. Test with a small pull request
+### Task 30. Make the deploy hook secret
+
+**Why:** The deploy hook accepts only a signed request. The server and GitHub must know the same secret.
+
+> **WARNING**
+> The secret works like a password. Do not send it to other people. Do not save it in a file other than `.env`.
+
+1. On the server, make a random secret.
+
+```bash
+openssl rand -hex 32
+```
+
+2. Copy the output.
+3. Open the `.env` file in a text editor.
+4. Find the line `DEPLOY_HOOK_SECRET=`. If it is not there, copy it from `.env.example`.
+5. Paste the secret after the equals sign. Save the file.
+6. On GitHub, open the repository. Click Settings.
+7. Click Secrets and variables. Click Actions.
+8. Click New repository secret.
+9. Set Name to `DEPLOY_HOOK_SECRET`.
+10. Paste the same secret in the Secret box.
+11. Click Add secret.
+
+**Result:** `.env` and GitHub have the same value for `DEPLOY_HOOK_SECRET`.
+
+> **NOTE**
+> The deploy hook does not start when the secret has fewer than 32 characters. The command above gives 64.
+
+### Task 31. Paste the access rules for push deploy
+
+**Why:** The new rules add the tag `tag:ci`. A temporary GitHub node with this tag can reach port 9000 on the server. It can reach no other port.
+
+**Before you start:** Do Task 9 first. Keep the family emails that you set there.
+
+1. On the server, show the policy file.
+
+```bash
+cat docs/remote-access/tailscale-policy.example.hujson
+```
+
+2. Copy all the text.
+3. In the admin console, open the Access controls page.
+4. Delete the old text. Paste the new text.
+5. Find the line that starts with `"group:family"`.
+6. Write the same family emails as in Task 9.
+7. Click Save.
+8. Read the test results on the page.
+9. Make sure all tests pass.
+
+**Result:** The page shows a green message that the policy is saved. All tests pass.
+
+> **CAUTION**
+> If a test fails, do not continue. A failed test can mean that `tag:ci` reaches more than port 9000.
+
+### Task 32. Make the Tailscale OAuth client
+
+**Why:** GitHub uses this client to join your tailnet for a few seconds. The client can only make nodes with the tag `tag:ci`.
+
+> **WARNING**
+> The client secret works like a password. Do not send it to other people. The page shows it only one time.
+
+1. In the admin console, open Settings. Click OAuth clients.
+2. Click Generate OAuth client.
+3. Find the scope for auth keys. The page can name it Auth Keys or Devices Core. Set it to Write.
+4. Select no other scope.
+5. Click Add tags. Choose `tag:ci`.
+6. Click Generate client.
+7. Copy the Client ID.
+8. On GitHub, open Settings > Secrets and variables > Actions.
+9. Click New repository secret.
+10. Set Name to `TS_OAUTH_CLIENT_ID`. Paste the Client ID. Click Add secret.
+11. In the admin console, copy the Client secret.
+12. On GitHub, click New repository secret.
+13. Set Name to `TS_OAUTH_SECRET`. Paste the client secret. Click Add secret.
+
+**Result:** GitHub has the two secrets `TS_OAUTH_CLIENT_ID` and `TS_OAUTH_SECRET`.
+
+> **NOTE**
+> The name of the scope can be different on the page. Choose the smallest Write scope that can make auth keys.
+
+### Task 33. Add the repository variable TS_HOST
+
+**Why:** The workflow needs the address of your server. The address is not secret, so it is a variable.
+
+1. On GitHub, open Settings > Secrets and variables > Actions.
+2. Click the Variables tab.
+3. Click New repository variable.
+4. Set Name to `TS_HOST`.
+5. Set Value to `homelab.<YOUR-TAILNET>`. Use your real tailnet name.
+6. Click Add variable.
+
+**Result:** The Variables tab shows `TS_HOST` with the address of your server.
+
+### Task 34. Start the deploy hook and install the path unit
+
+**Why:** The `deploy-hook` container receives the request. The path unit starts the deploy when the hook writes its trigger file.
+
+**Before you start:** Do Tasks 30 to 33.
+
+1. In the `homelab` folder, restart the `remote` profile.
+
+```bash
+docker compose --profile remote up -d
+```
+
+2. Make sure `deploy-hook` is healthy.
+
+```bash
+docker compose --profile remote ps deploy-hook
+```
+
+3. Run the install script again.
+
+```bash
+./deploy/install.sh
+```
+
+4. Type your password when `sudo` asks for it.
+5. Make sure the path unit is active.
+
+```bash
+systemctl status homelab-deploy.path
+```
+
+**Result:** `deploy-hook` is healthy. The path unit shows "active (waiting)".
+
+> **NOTE**
+> If `deploy-hook` stops with a permission error, run `./setup.sh` again. It makes the folder for the trigger file.
+
+### Task 35. Test with a small pull request
 
 **Why:** This test shows that the full path works, from GitHub to your server.
+
+**Before you start:** Do Tasks 30 to 34.
 
 1. On GitHub, make a small pull request. Change one line in a document.
 2. Wait for the `CI` checks to turn green.
 3. Merge the pull request.
 4. Wait for the `Release` workflow to finish with a green mark.
-5. Wait 5 minutes.
-6. On the server, read the logs.
+5. Wait one minute. The `notify` job runs after the `release` job.
+6. On GitHub, open the `notify` job of the run. Read its log.
+7. Make sure the log shows no error. The last step must show a green mark.
+8. On the server, read the log of the receiver.
+
+```bash
+docker logs deploy-hook
+```
+
+9. Make sure the last line shows the status 202.
+10. Read the log of the deploy service.
 
 ```bash
 journalctl -u homelab-deploy -n 50
 ```
 
-7. Make sure the log has a line with "DEPLOYED".
-8. Open Rack at `http://<SERVER-LAN-IP>:4000`.
-9. Make sure Rack loads with no error.
+11. Make sure the log has a line with "DEPLOYED".
+12. Open Rack at `http://<SERVER-LAN-IP>:4000`.
+13. Make sure Rack loads with no error.
 
 **Result:** The log shows "DEPLOYED" and the new commit ID. `git log -1` on the server shows the same commit.
 
 > **NOTE**
-> The log line "gate pending" is normal. It means the `Release` workflow is not finished. The timer tries again.
+> The log line "gate pending" is normal. It means the `Release` workflow is not finished. The next doorbell or the hourly timer tries again.
 
-### Task 31. Pause and roll back
+> **NOTE**
+> If the `notify` log says "push deploy not configured", a secret or `TS_HOST` is not set. Do Tasks 30 to 33 again. The hourly timer deploys the change in the meantime.
+
+### Task 36. Pause and roll back
 
 **Why:** You must be able to stop automatic deploys. You must be able to go back to an old version.
 
 **To pause:**
 
-1. Stop the timer.
+1. Stop the timer and the path unit.
 
 ```bash
-sudo systemctl stop homelab-deploy.timer
+sudo systemctl stop homelab-deploy.timer homelab-deploy.path
 ```
 
-2. To start the timer again, type this command.
+2. To start them again, type this command.
 
 ```bash
-sudo systemctl start homelab-deploy.timer
+sudo systemctl start homelab-deploy.timer homelab-deploy.path
 ```
 
 **To roll back by hand:**
 
-1. Pause the timer. Use the command above.
+1. Pause the timer and the path unit. Use the command above.
 2. Find the commit ID of the good version.
 
 ```bash
@@ -874,17 +1023,17 @@ RACK_TAG=sha-<GOOD-SHA> docker compose up -d --wait
 ```
 
 5. Make sure Rack works.
-6. Start the timer again only after a fix is on `main`.
+6. Start the timer and the path unit again only after a fix is on `main`.
 
-**Result:** The timer is stopped. Rack runs the good version.
+**Result:** The timer and the path unit are stopped. Rack runs the good version.
 
 > **WARNING**
-> After step 3, the repository is behind `origin/main`. If you start the timer, it deploys `main` again. Fix `main` first.
+> After step 3, the repository is behind `origin/main`. If you start the timer or the path unit, it deploys `main` again. Fix `main` first.
 
 > **NOTE**
 > The script rolls back by itself when the new version does not start. It then ignores that commit until `main` changes.
 
-### Task 32. If the repository is private (optional)
+### Task 37. If the repository is private (optional)
 
 **Why:** Do this task only if you make the repository private. A private repository needs credentials for three things.
 
