@@ -310,7 +310,7 @@ cat docs/remote-access/tailscale-policy.example.hujson
 4. Set `TS_TAILNET` to `<YOUR-TAILNET>`, for example `TS_TAILNET=tail1234.ts.net`.
 5. Keep `TS_HOSTNAME=homelab`. Change it only if a machine named `homelab` is already in your tailnet.
 6. Keep `TS_EXTRA_ARGS` empty.
-7. If you want the `remote` profile in each command, remove the `#` from the line `COMPOSE_PROFILES=remote`.
+7. If you want the `remote` profile in each command, remove the `#` from the line `COMPOSE_PROFILES=remote`. The deploy timer (Part D) uses only this line. It does not use `--profile remote`.
 8. Save the file.
 
 **Result:** `.env` has your key, your tailnet name and the host name `homelab`.
@@ -684,8 +684,8 @@ Do these tasks once. Then the server deploys each change from the `main` branch 
 4. Set the branch name pattern to `main`.
 5. Turn on "Require a pull request before merging".
 6. Turn on "Require status checks to pass".
-7. Add the checks from the workflow `ci.yml`. Their names start with `CI /`.
-8. Add the check `release`.
+7. Add the four checks from the workflow `ci.yml`: `compose`, `shell`, `rack` and `image`.
+8. Do not add the check `release`. It runs only after the merge. A pull request cannot get it, so the pull request cannot merge.
 9. Turn on "Block force pushes".
 10. Turn on "Restrict deletions".
 11. Click Create, or click Save changes.
@@ -723,11 +723,15 @@ git status
 
 5. Make sure the output says "nothing to commit, working tree clean".
 6. If the output lists changed files, keep or discard them with `git stash` before you continue.
+7. If you use remote access (Part B), open `.env`. Make sure the line `COMPOSE_PROFILES=remote` has no `#` before it.
 
 **Result:** `git status` shows `On branch main` and "working tree clean".
 
 > **NOTE**
 > The files `.env` and `appdata` are not in Git. The deploy script does not change them.
+
+> **WARNING**
+> The deploy script does not use `--profile remote`. If `COMPOSE_PROFILES=remote` is not in `.env`, the deploys do not update `tailscale` and `caddy`. The containers continue to run.
 
 ### Task 26. Install jq and curl
 

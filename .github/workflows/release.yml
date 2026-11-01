@@ -22,6 +22,8 @@ jobs:
   # Check run is named exactly "release" (no `name:` set); the deploy gate keys on it.
   release:
     needs: ci
+    # workflow_dispatch can pick any branch: never push :main from another one
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read

@@ -19,6 +19,8 @@ COPY server/ ./
 RUN npm run build
 
 FROM node:24-alpine
+# deploy.sh prunes old rack images by this label (CI sets it too; this covers RACK_SOURCE=build)
+LABEL org.opencontainers.image.source=https://github.com/Gascon1/homelab
 # Runs as root on purpose: it must read the root-owned Docker socket mounted read-only by compose.
 ENV NODE_ENV=production PORT=4000 RACK_WEB_DIR=/app/web
 WORKDIR /app

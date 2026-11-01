@@ -50,6 +50,9 @@ if [[ ! -f "${REPO_DIR}/deploy/deploy.env" ]]; then
     echo "Created deploy/deploy.env from the example. Edit it if you need to."
 fi
 
+# The unit makes ~/.docker writable only if it exists when the service starts
+sudo -u "$DEPLOY_USER" mkdir -p "${USER_HOME}/.docker"
+
 render() {
     sed -e "s|@REPO_DIR@|${REPO_DIR}|g" -e "s|@DEPLOY_USER@|${DEPLOY_USER}|g" \
         -e "s|@USER_HOME@|${USER_HOME}|g" "$1"

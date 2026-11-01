@@ -16,11 +16,14 @@
 #   REMOTE         git remote (default: origin)
 #   GITHUB_REPO    owner/name for the gate check (default: Gascon1/homelab)
 #   GITHUB_TOKEN   optional, raises the API rate limit
-#   COMPOSE_PROFILES  optional, passed through to docker compose
+#   COMPOSE_PROFILES  optional override. Leave it unset: docker compose then
+#                  reads COMPOSE_PROFILES from <repo>/.env (e.g. remote)
 #   STATE_DIR      skip file and lock (default: <repo>/.deploy-state)
 #   RACK_SOURCE    registry (default): pull the rack image from GHCR;
 #                  build: build it on this host (for a private repo/image)
 #   PRUNE          1 (default) prunes old rack images after a good deploy
+#   PULL_ALL       0 (default): pull only rack, plus all images when a
+#                  compose*.yml file changed; 1: pull every image each deploy
 # =============================================================================
 
 set -euo pipefail
@@ -107,10 +110,16 @@ main() {
     GITHUB_API="${GITHUB_API:-https://api.github.com}"
     STATE_DIR="${STATE_DIR:-${REPO_DIR}/.deploy-state}"
     PRUNE="${PRUNE:-1}"
+    PULL_ALL="${PULL_ALL:-0}"
     RACK_SOURCE="${RACK_SOURCE:-registry}"
     case "$RACK_SOURCE" in registry | build) ;; *) die "RACK_SOURCE must be registry or build, got: ${RACK_SOURCE}" ;; esac
     IMAGE_REPO="ghcr.io/gascon1/homelab-rack"
     IMAGE_SOURCE_LABEL="org.opencontainers.image.source=https://github.com/Gascon1/homelab"
+
+    # An empty COMPOSE_PROFILES in the environment would hide the one in .env
+    # (docker compose prefers the environment), and then the remote profile
+    # services would not be updated. Unset it so .env is used.
+    [[ -z "${COMPOSE_PROFILES:-}" ]] && unset COMPOSE_PROFILES
 
     [[ -n "$cfg" ]] && log "config: ${cfg}"
     [[ $DRY_RUN -eq 1 ]] && log "DRY-RUN: nothing will be changed"
@@ -123,6 +132,12 @@ main() {
     [[ -d "${REPO_DIR}/.git" ]] || die "REPO_DIR is not a git checkout: ${REPO_DIR}"
     cd "$REPO_DIR"
     mkdir -p "$STATE_DIR"
+    local profiles="${COMPOSE_PROFILES:-}" profiles_from="deploy config"
+    if [[ -z "$profiles" && -r .env ]]; then
+        profiles="$(load_env .env > /dev/null 2>&1; printf '%s' "${COMPOSE_PROFILES:-}")" || profiles=""
+        profiles_from=".env"
+    fi
+    [[ -n "$profiles" ]] || profiles_from="none set"
 
     # ---- lock ---------------------------------------------------------------
     # In STATE_DIR (not /tmp), so a manual run and the timer share one lock
@@ -145,6 +160,7 @@ main() {
         log "up to date"
         return 0
     fi
+    log "compose profiles: ${profiles:-(none)} (${profiles_from})"
 
     # ---- 2. safety checks ---------------------------------------------------
     local cur_branch
@@ -193,7 +209,7 @@ main() {
         rm -f "$err_file"
         local state
         if ! state="$(jq -r '
-            [.check_runs[]? | select(.name == "release")]
+            [.check_runs[]? | select(.name == "release" and .app.slug == "github-actions")]
             | if length == 0 then "none"
               else (sort_by(.started_at // "") | last | "\(.status)/\(.conclusion // "none")") end' <<< "$body")"; then
             log "WARN unexpected response from GitHub, will retry on the next run"
@@ -210,12 +226,21 @@ main() {
     # ---- 5. deploy ----------------------------------------------------------
     prev="$head"
     local new_tag="sha-${target}"
+    # Pull every image only when a compose file changed (new tags, new services).
+    # Otherwise only rack: the :latest apps update when you choose (MANUAL-STEPS Task 22).
+    local pull_all="$PULL_ALL"
+    if ! git diff --quiet "$prev" "$target" -- 'compose*.yml' 'compose*.yaml' 'docker-compose*.yml' 'docker-compose*.yaml'; then
+        pull_all=1
+    fi
+    local -a pull_args=(rack)
+    [[ "$pull_all" == "1" ]] && pull_args=()
     if [[ $DRY_RUN -eq 1 ]]; then
-        log "DRY-RUN would: git merge --ff-only ${REMOTE}/${BRANCH} (${prev:0:12} -> ${target:0:12})"
+        log "DRY-RUN would: git merge --ff-only ${target:0:12} (${prev:0:12} -> ${target:0:12})"
         if [[ "$RACK_SOURCE" == "build" ]]; then
-            log "DRY-RUN would: RACK_TAG=${new_tag} docker compose build rack, then docker compose pull --ignore-buildable"
+            log "DRY-RUN would: RACK_TAG=${new_tag} docker compose build rack"
+            [[ "$pull_all" == "1" ]] && log "DRY-RUN would: docker compose pull --ignore-buildable"
         else
-            log "DRY-RUN would: RACK_TAG=${new_tag} docker compose pull"
+            log "DRY-RUN would: RACK_TAG=${new_tag} docker compose pull ${pull_args[*]:-(all services)}"
         fi
         log "DRY-RUN would: RACK_TAG=${new_tag} docker compose up -d --remove-orphans --wait --wait-timeout 300"
         log "DRY-RUN on failure would: git reset --hard ${prev:0:12}, restart with RACK_TAG=sha-${prev}, write skip file"
@@ -224,7 +249,9 @@ main() {
     fi
 
     log "deploying ${prev:0:12} -> ${target:0:12}"
-    git merge --quiet --ff-only "${REMOTE}/${BRANCH}" || die "git merge --ff-only failed (nothing deployed)"
+    # Merge the sha the gate checked, not the remote ref: a parallel git fetch
+    # could have moved it since.
+    git merge --quiet --ff-only "$target" || die "git merge --ff-only failed (nothing deployed)"
     export RACK_TAG="$new_tag"
 
     if [[ "$RACK_SOURCE" == "build" ]]; then
@@ -233,13 +260,21 @@ main() {
             printf '%s\n' "$target" > "$skip_file"
             die "docker compose build rack failed; reverted to ${prev:0:12}, will not retry this commit"
         fi
-        docker compose pull --ignore-buildable || {
+        if [[ "$pull_all" == "1" ]] && ! docker compose pull --ignore-buildable; then
             git reset --quiet --hard "$prev"
             die "docker compose pull failed; reverted to ${prev:0:12}, will retry on the next run"
-        }
-    elif ! docker compose pull; then
-        git reset --quiet --hard "$prev"
-        die "docker compose pull failed; reverted to ${prev:0:12}, will retry on the next run"
+        fi
+    else
+        if ! docker compose pull "${pull_args[@]}"; then
+            git reset --quiet --hard "$prev"
+            die "docker compose pull failed; reverted to ${prev:0:12}, will retry on the next run"
+        fi
+        # rack has a build: section, so compose pull only warns when the image is
+        # missing, and compose up would then build it here. Require the CI image.
+        if ! docker image inspect "${IMAGE_REPO}:${new_tag}" > /dev/null 2>&1; then
+            git reset --quiet --hard "$prev"
+            die "image ${IMAGE_REPO}:${new_tag} not pulled (package private or not pushed?); reverted to ${prev:0:12}, will retry on the next run"
+        fi
     fi
 
     if docker compose up -d --remove-orphans --wait --wait-timeout 300; then

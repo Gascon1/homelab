@@ -11,9 +11,9 @@ Requires=docker.service
 Type=oneshot
 User=@DEPLOY_USER@
 WorkingDirectory=@REPO_DIR@
-# Both files are optional; scripts/deploy.sh reads the first one it finds.
-EnvironmentFile=-/etc/homelab-deploy.env
-EnvironmentFile=-@REPO_DIR@/deploy/deploy.env
+# No EnvironmentFile: scripts/deploy.sh reads /etc/homelab-deploy.env or
+# deploy/deploy.env itself (first one found). systemd would load both files and
+# parse them differently, so values from the wrong file could leak in.
 Environment=REPO_DIR=@REPO_DIR@
 ExecStart=@REPO_DIR@/scripts/deploy.sh
 TimeoutStartSec=20min
@@ -28,7 +28,7 @@ ProtectSystem=strict
 # "read-only" (not "yes") so a repo under /home still works; the repo is made writable below.
 ProtectHome=read-only
 ReadWritePaths=@REPO_DIR@
-# docker compose build (RACK_SOURCE=build) writes buildx state here; "-" ignores a missing path
+# docker compose build (RACK_SOURCE=build) writes buildx state here; install.sh creates it
 ReadWritePaths=-@USER_HOME@/.docker
 ProtectKernelTunables=yes
 ProtectKernelModules=yes

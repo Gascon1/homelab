@@ -37,7 +37,7 @@ absent() { [[ ! -e "$1" ]]; }
 # ---- stubs -------------------------------------------------------------------
 cat > "$BIN/docker" << 'STUB'
 #!/usr/bin/env bash
-echo "docker $* [RACK_TAG=${RACK_TAG:-}]" >> "$CALLS_LOG"
+echo "docker $* [RACK_TAG=${RACK_TAG:-}] [PROFILES=${COMPOSE_PROFILES-unset}]" >> "$CALLS_LOG"
 if [[ "${1:-}" == "compose" && "${2:-}" == "up" && -n "${FAIL_UP_TAG:-}" && "${RACK_TAG:-}" == "$FAIL_UP_TAG" ]]; then
     echo "stub: unhealthy" >&2
     exit 1
@@ -56,9 +56,11 @@ case "${GATE:-success}" in
     failure) st=completed; co='"failure"' ;;
     pending) st=in_progress; co=null ;;
     none) echo '{"total_count":0,"check_runs":[]}'; exit 0 ;;
+    # A green "release" check made by another GitHub App, not by GitHub Actions
+    fake) echo '{"total_count":1,"check_runs":[{"name":"release","status":"completed","conclusion":"success","started_at":"2026-01-01T00:00:00Z","app":{"slug":"evil-app"}}]}'; exit 0 ;;
     http404) echo "curl: (22) The requested URL returned error: 404" >&2; exit 22 ;;
 esac
-printf '{"total_count":1,"check_runs":[{"name":"release","status":"%s","conclusion":%s,"started_at":"2026-01-01T00:00:00Z"}]}\n' "$st" "$co"
+printf '{"total_count":1,"check_runs":[{"name":"release","status":"%s","conclusion":%s,"started_at":"2026-01-01T00:00:00Z","app":{"slug":"github-actions"}}]}\n' "$st" "$co"
 STUB
 chmod +x "$BIN/docker" "$BIN/curl"
 
@@ -123,7 +125,8 @@ echo "4. gate success, compose up ok"
 GATE=success run 0
 expect_out "DEPLOYED"
 expect_call "curl .*commits/${SHA2}/check-runs?check_name=release"
-expect_call "docker compose pull \[RACK_TAG=sha-${SHA2}\]"
+expect_call "docker compose pull rack \[RACK_TAG=sha-${SHA2}\]"
+expect_call "docker image inspect ghcr.io/gascon1/homelab-rack:sha-${SHA2}"
 expect_call "docker compose up -d --remove-orphans --wait --wait-timeout 300 \[RACK_TAG=sha-${SHA2}\]"
 expect_call "docker image prune"
 check "host fast-forwarded" same "$(head_of "$HOST")" "$SHA2"
@@ -172,12 +175,41 @@ GATE=http404 run 0
 expect_out "repo private? set GITHUB_TOKEN"
 expect_no_call "compose"
 
+echo "8b. release check from another app: ignored"
+GATE=fake run 0
+expect_out "gate pending: no release check run yet"
+expect_no_call "compose"
+
+echo "8c. pull leaves no rack image (compose pull only warns for a buildable service): revert, no skip"
+GATE=success NO_LOCAL_IMAGE=1 run 1
+expect_out "not pulled"
+expect_no_call "compose up"
+check "host not moved" same "$(head_of "$HOST")" "$SHA4"
+check "no skip file" absent "$HOST/.deploy-state/skip-sha"
+
+echo "8d. compose file changed: pull every image; profiles from .env"
+printf 'COMPOSE_PROFILES=remote\n' > "$HOST/.env"
+printf 'COMPOSE_PROFILES=\n' > "$T/deploy.env"
+echo "services: {}" > "$DEV/compose.yml"
+git -C "$DEV" add compose.yml
+git -C "$DEV" commit -q -m "compose change"
+git -C "$DEV" push -q origin HEAD:main
+SHA6="$(head_of "$DEV")"
+GATE=success run 0
+expect_out "DEPLOYED"
+expect_out "compose profiles: remote (.env)"
+expect_call "docker compose pull \[RACK_TAG=sha-${SHA6}\]"
+expect_call "docker compose up .*\[PROFILES=unset\]"
+rm -f "$HOST/.env"
+: > "$T/deploy.env"
+new_commit v7
+
 echo "9. RACK_SOURCE=build"
 printf 'RACK_SOURCE=build\nGITHUB_TOKEN=tok\n' > "$T/deploy.env"
 GATE=success run 0
 SHA5="$(head_of "$DEV")"
 expect_call "docker compose build rack \[RACK_TAG=sha-${SHA5}\]"
-expect_call "docker compose pull --ignore-buildable"
+expect_no_call "docker compose pull"
 : > "$T/deploy.env"
 
 echo
