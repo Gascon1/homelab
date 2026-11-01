@@ -128,46 +128,7 @@ Severity is judged for this setup: a home network behind NAT, owner-operated. "T
 
 ## 6. Verification checklist
 
-Run these after the changes and again after any router or compose change.
-
-**On the server**
-
-```bash
-# 1. Repo helper (added on this branch): lists host listeners and Docker published ports, warns on 0.0.0.0/[::]
-./scripts/check-exposure.sh
-
-# 2. Everything listening on the host
-sudo ss -tulpn | grep -Ev '127\.0\.0\.1|\[::1\]'
-#   With BIND_ADDR set to the LAN IP you should see only <LAN-IP>:<port> for web UIs,
-#   plus 0.0.0.0 for 32400, 1900, 32410-32414, 32469 (and sshd).
-
-# 3. What Docker publishes, per container
-docker ps --format '{{.Names}}' | xargs -n1 docker port
-#   flaresolverr, tailscale and caddy must print nothing.
-
-# 4. Caddy is not publishing host ports and the admin API is off
-docker inspect caddy --format '{{.HostConfig.NetworkMode}}'   # container:<id of tailscale>
-docker compose --profile remote exec caddy wget -qO- http://127.0.0.1:2019/config/ ; echo "rc=$?"   # must fail
-
-# 5. Immich no longer sees unrelated secrets
-docker exec immich_server env | grep -E 'RACK_|TS_AUTHKEY|QBITTORRENT' ; echo "rc=$? (1 = good)"
-```
-
-**From outside your home** (phone on mobile data with Wi-Fi **off**, or a friend's network)
-
-- Find your public IP (`curl ifconfig.me` on the server) and, if you have one, your server's global IPv6 address (`ip -6 addr show scope global`).
-- From a laptop tethered to the phone's hotspot: `nmap -Pn -p 1-65535 <public-ip>`. Expect everything closed or filtered, except 32400 if you chose Plex Remote Access. Repeat with `nmap -6 -Pn <server-ipv6>`.
-- With the Tailscale app **off**: `https://homelab.<tailnet>.ts.net:8989` must not load (the DNS name will not resolve or will time out).
-- With the Tailscale app **on**: it loads with a valid padlock and asks for a login (Sonarr shows its login form, not the dashboard). Do the same for 7878, 9696 and 8080.
-- `https://homelab.<tailnet>.ts.net:8191` must fail (FlareSolverr is never proxied).
-- From a family member's device (if invited): 443 (family homepage), 32400, 2283 and 5055 work, and 4000 (Rack), 19999, 8080 and 8989 time out (ACL).
-- Online check: https://www.shodan.io/host/<public-ip> should show nothing, or Plex only. Check again a week later.
-
-**On the router**
-
-- UPnP / NAT-PMP: off.
-- Port forwards: none, or only TCP 32400 to the server.
-- IPv6 firewall: inbound blocked by default.
+[MANUAL-STEPS Task 17](MANUAL-STEPS.md#task-17-test-from-outside) is the checklist: the phone tests with and without Tailscale, the server checks (exposure script, listeners, published ports, Caddy network and admin API, Immich secrets), the external port scans and Shodan. The router checks are [Task 4](MANUAL-STEPS.md#task-4-close-the-router). Run both after these changes and again after any router or compose change.
 
 ## Update 2026-11-01: family homepage on 443
 

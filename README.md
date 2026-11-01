@@ -131,11 +131,11 @@ docker compose logs -f radarr
 # Restart a service
 docker compose restart sonarr
 
-# Update all containers (--build also rebuilds Rack)
-docker compose pull && docker compose up -d --build
+# Update all containers (COMPOSE_PROFILES in .env adds the remote-access ones)
+docker compose pull && docker compose up -d
 
-# Same, including the remote-access containers (not needed if COMPOSE_PROFILES=remote is in .env)
-docker compose --profile remote pull && docker compose --profile remote up -d --build
+# Build Rack from rack/ instead of using the CI image (to test a local change)
+docker compose up -d --build rack
 
 # One-time migration from Dashy: removes the old dashy containers
 # (appdata/dashy can be deleted afterwards)

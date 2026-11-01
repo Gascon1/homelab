@@ -116,7 +116,7 @@ qBittorrent runs behind gluetun, which reads the NordVPN WireGuard key from `${A
 
 - **Why pull-based.** The repo is public. A self-hosted runner would run code from fork pull requests on your server. An SSH or Tailscale connection from GitHub would put a key to your house on GitHub. With pull, GitHub never gets a login to the server. The server makes outbound HTTPS requests. The optional doorbell (above) only lets a tagged CI node send a signed "check now" message to one port.
 - **Why the repo being public matters.** The release check and the image can be read with no secret on the server. There is no token to steal. The cost is that anything in the repo is world-readable, so never commit secrets (`.env` is gitignored).
-- **Why `main` must be protected.** The server runs whatever is on `main` (compose files and scripts run with docker group rights, which equal root). Whoever can write to `main` controls the server. Require pull requests and the `CI` checks (`compose`, `shell`, `hook`, `rack`, `image`), block force pushes, and use 2FA on the GitHub account (Task 24).
+- **Why `main` must be protected.** The server runs whatever is on `main` (compose files and scripts run with docker group rights, which equal root). Whoever can write to `main` controls the server. Require pull requests and the `CI` checks (`compose`, `shell`, `hook`, `rack`, `image`), block force pushes, and use 2FA on the GitHub account (Task 23).
 - **The gate** stops a commit whose tests or image build failed. It is not a review: it does not stop a bad but green change. Do not make `release` a required check: it runs only after the merge, so a pull request would wait for it forever.
 - **The service** runs as your user (docker group) with systemd hardening: `NoNewPrivileges`, `ProtectSystem=strict` (only the repo is writable), `PrivateTmp`, no extra capabilities. Docker group access is still root-equivalent, so the hardening limits the script, not Docker.
 
@@ -128,7 +128,7 @@ qBittorrent runs behind gluetun, which reads the NordVPN WireGuard key from `${A
 | `git fetch` | HTTPS, no login | Use a read-only deploy key: repo Settings > Deploy keys, leave "Allow write access" unchecked. Set the remote to `git@github.com:Gascon1/homelab.git` |
 | Rack image | Package set to Public, pulled with no login | Set `RACK_SOURCE=build` in `deploy.env`. The server runs `docker compose build rack` and tags it `sha-<commit>`. No registry token is needed. When a compose file changed, other services are pulled with `docker compose pull --ignore-buildable` |
 
-Steps for a private repo are Task 37 in MANUAL-STEPS.
+Steps for a private repo are Task 35 in MANUAL-STEPS.
 
 ## Rollback
 
@@ -158,7 +158,7 @@ Remove everything with `./deploy/install.sh --uninstall`.
 
 ## Limits
 
-- **Other apps on `:latest`** (Plex, Sonarr, Radarr and so on) only update when `docker compose pull` runs for them. A deploy pulls them only when a compose file changed (or with `PULL_ALL=1`). Otherwise update them on purpose (MANUAL-STEPS Task 22).
+- **Other apps on `:latest`** (Plex, Sonarr, Radarr and so on) only update when `docker compose pull` runs for them. A deploy pulls them only when a compose file changed (or with `PULL_ALL=1`). Otherwise update them on purpose (MANUAL-STEPS Task 21).
 - **Only the Rack image is health-gated and rolled back.** Other apps that update during a full pull are not restored by a rollback.
 - **Single architecture.** The release workflow builds `linux/amd64` only.
 - **Delay.** With push deploy set up, the deploy starts within a minute after the `release` job turns green. Without it, the deploy waits for the hourly timer (up to 1 hour).

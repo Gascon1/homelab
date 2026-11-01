@@ -16,7 +16,7 @@ Repos and commits read: [github/docs](https://github.com/github/docs) `33b1f4a`,
 - **Self-hosted runner: no for public.** GitHub itself says to use self-hosted runners only with private repos, because fork PRs can run code on the runner.
 - **SSH from Actions: no.** Tailscale SSH has no forced-command option, and here tailscaled runs in a container, not on the host. A forced-command OpenSSH key works but puts a door key in GitHub for no gain over the doorbell.
 - **Ready-made tools: none is better here.** None of them gate on a CI check run, so they would deploy a commit before its `sha-<commit>` image exists. Their GitHub webhooks need a public URL, and most need the Docker socket plus an admin UI. **Watchtower is archived (December 2025) and unmaintained.** doco-cd is the closest fit if you ever want to drop the custom script.
-- **Private repo: same design**, with a fine-grained read-only token and a deploy key on the host (already documented as Task 32). A self-hosted runner becomes acceptable on a private repo, but it still needs a fallback for when the host is offline, and it adds a long-running agent. On GitHub Free, a private repo gets **no branch protection or rulesets**, so `main` cannot be protected. That matters more than the choice of trigger.
+- **Private repo: same design**, with a fine-grained read-only token and a deploy key on the host (already documented as MANUAL-STEPS Task 35). A self-hosted runner becomes acceptable on a private repo, but it still needs a fallback for when the host is offline, and it adds a long-running agent. On GitHub Free, a private repo gets **no branch protection or rulesets**, so `main` cannot be protected. That matters more than the choice of trigger.
 
 ## Comparison
 
@@ -109,7 +109,7 @@ Common problem: **none documents gating on a CI check run.** `deploy.sh` waits f
 2. Keep the ACL to `tag:ci` → `tag:homelab:9000` only, and keep the hourly timer. Do not set it to "never" (Argo CD's own warning).
 3. Leave the `release` gate in `deploy.sh` as it is. It is what makes the doorbell safe.
 
-**Private repo: the same design.** Add the read-only token and deploy key (Task 32), and use `RACK_SOURCE=build` or a classic `read:packages` PAT. A self-hosted runner is a reasonable alternative only on a private repo, and only if you are happy to run an always-on agent with docker-group rights. It still needs the timer, for the 24-hour queue limit. It is not better than the doorbell, so do not switch. Fix branch protection first (GitHub Pro, or accept the risk knowingly).
+**Private repo: the same design.** Add the read-only token and deploy key (MANUAL-STEPS Task 35), and use `RACK_SOURCE=build` or a classic `read:packages` PAT. A self-hosted runner is a reasonable alternative only on a private repo, and only if you are happy to run an always-on agent with docker-group rights. It still needs the timer, for the 24-hour queue limit. It is not better than the doorbell, so do not switch. Fix branch protection first (GitHub Pro, or accept the risk knowingly).
 
 **Ready-made tool?** No, not now. None gates on the `release` check, so with `sha-` pinned images they would race the image build. All of them add a privileged service, and those with UIs add a login to protect. If you ever want to delete `deploy.sh`, **doco-cd** is the one to try (polling, no UI, maintained), with images switched to a tag that exists before the commit lands on `main`. Avoid Watchtower (archived).
 

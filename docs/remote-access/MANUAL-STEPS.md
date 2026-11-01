@@ -1,348 +1,218 @@
-# Remote Access: Manual Tasks
+# Remote Access and Deploys: Manual Tasks
 
-This guide gives you the tasks that only you can do. Do them in the order shown.
+The tasks that only you can do: in web UIs, on the router, in the Tailscale admin console and on GitHub. Do them in order. Each task ends on a **Result**: start the next task only when the result is true.
 
-The tasks make your homelab safe. Then they let you reach it from outside your home with Tailscale. Tailscale is a private network. You do not open ports on your router.
+On a new server, [SETUP.md](../SETUP.md) tells you which tasks to do and when.
 
-**Time:** 1 to 2 hours.
+**You need:** a terminal in the `homelab` folder on the server, a phone, your router login, and an email account for Tailscale (Google, GitHub, Apple or Microsoft) with 2FA on.
 
-**You need:**
+**Names:**
 
-- The server (a terminal in the `homelab` folder).
-- A phone.
-- An email account for Tailscale (Google, GitHub, Apple or Microsoft). The account must use 2FA.
-- Your router login.
+- `<SERVER-LAN-IP>`: the LAN address of the server, for example `10.0.0.100` (Task 4 fixes it).
+- `<YOUR-TAILNET>`: your tailnet name, for example `tail1234.ts.net` (Task 7).
+- `homelab`: the machine name on the tailnet, the `TS_HOSTNAME` value. The server is `homelab.<YOUR-TAILNET>`.
+- **Locked**: an app shows its sign-in form in a new private browser window, and every localhost or local-address bypass is off. Caddy sends all tailnet traffic from 127.0.0.1, so an app with a bypass is open to the whole tailnet.
 
-**Names used in this guide:**
-
-- `<YOUR-TAILNET>` is the name of your tailnet. It looks like `tail1234.ts.net`. You get it in Task 8.
-- `<SERVER-LAN-IP>` is the LAN address of the server. An example is `10.0.0.100`.
-- `homelab` is the machine name on your tailnet. It is the `TS_HOSTNAME` value.
-- The full address of the server is `homelab.<YOUR-TAILNET>`.
+If you set a custom `APPDATA` in `.env`, use that folder wherever this guide says `appdata`.
 
 ## Task list
 
-| Done | Task | What it does | Time |
-| --- | --- | --- | --- |
-| [ ] | 1. File Browser | Remove the old container | 5 min |
-| [ ] | 2. qBittorrent | Change the password. Set the safe options | 10 min |
-| [ ] | 3. Radarr, Sonarr, Prowlarr | Set Authentication Required to Enabled | 10 min |
-| [ ] | 4. Immich and Seerr | Check the database password and sign-in | 5 min |
-| [ ] | 5. Router | Stop UPnP and port forwards | 15 min |
-| [ ] | 6. BIND_ADDR | Publish the web pages on the LAN address only | 5 min |
-| [ ] | 7. Tailscale account | Make the account | 5 min |
-| [ ] | 8. MagicDNS and HTTPS | Enable names and certificates | 5 min |
-| [ ] | 9. Access rules | Paste the ACL policy (uses `grants`) | 10 min |
-| [ ] | 10. Auth key | Make a key for the server | 5 min |
-| [ ] | 11. `.env` values | Write the Tailscale values | 5 min |
-| [ ] | 12. Start the `remote` profile | Download the images, validate the Caddyfile, start `tailscale` and `caddy` | 10 min |
-| [ ] | 13. Examine the new containers | Check health, certificate and machine name | 5 min |
-| [ ] | 14. Remove the key | Delete the key from `.env` | 2 min |
-| [ ] | 15. Device approval | Approve each new device | 3 min |
-| [ ] | 16. Your devices | Install Tailscale on phone and laptop | 10 min |
-| [ ] | 17. Phone apps | Set the Immich, Plex and Seerr addresses | 10 min |
-| [ ] | 18. Test from outside | Test with mobile data and the checks of the security report | 30 min |
-| [ ] | 19. Plex over Tailscale | Set the custom server access URLs | 5 min |
-| [ ] | 20. Plex for family without Tailscale (optional) | Use Plex Remote Access | 10 min |
-| [ ] | 21. Family invites (optional) | Invite family to the tailnet | 10 min |
-| [ ] | 22. Updates | Update the containers each week | 5 min |
-| [ ] | 23. GHCR package | Make the `homelab-rack` image public | 5 min |
-| [ ] | 24. Protect `main` | Set the branch rules. Turn on 2FA | 10 min |
-| [ ] | 25. Server repository | Put the repository on a clean `main` | 3 min |
-| [ ] | 26. `jq` and `curl` | Install two tools | 2 min |
-| [ ] | 27. Install the deploy timer | Run `deploy/install.sh` | 3 min |
-| [ ] | 28. Dry run | Test the deploy script with no change | 3 min |
-| [ ] | 29. Examine the timer and logs | Check that the timer runs | 3 min |
-| [ ] | 30. Deploy hook secret | Make the secret. Put it in `.env` and in GitHub | 5 min |
-| [ ] | 31. Push deploy rules | Paste the policy file that has `tag:ci` | 5 min |
-| [ ] | 32. Tailscale federated identity | Make the identity. Put its values in GitHub | 10 min |
-| [ ] | 33. Repository variable | Add `TS_HOST` in GitHub | 3 min |
-| [ ] | 34. Start the deploy hook | Add the `push` profile. Install the path unit | 5 min |
-| [ ] | 35. Test with a small pull request | Make sure an automatic deploy works | 10 min |
-| [ ] | 36. Pause and roll back | Stop the deploy units. Go back to an old version | 5 min |
-| [ ] | 37. If the repository is private (optional) | Set the token, deploy key and build mode | 20 min |
+| Done | Task | Time |
+| --- | --- | --- |
+| | **Part A: Make the system safe** | |
+| [ ] | 1. Lock qBittorrent | 10 min |
+| [ ] | 2. Lock Radarr, Sonarr, Prowlarr | 10 min |
+| [ ] | 3. Lock Immich and Seerr | 5 min |
+| [ ] | 4. Close the router | 15 min |
+| [ ] | 5. Publish on the LAN address only | 5 min |
+| | **Part B: Configure Tailscale** | |
+| [ ] | 6. Make the Tailscale account | 5 min |
+| [ ] | 7. Enable MagicDNS and HTTPS | 5 min |
+| [ ] | 8. Paste the access policy | 10 min |
+| [ ] | 9. Make the auth key | 5 min |
+| [ ] | 10. Write the Tailscale values in `.env` | 5 min |
+| [ ] | 11. Start the `remote` profile | 10 min |
+| [ ] | 12. Examine the new containers | 5 min |
+| [ ] | 13. Remove the auth key | 2 min |
+| [ ] | 14. Enable device approval | 3 min |
+| | **Part C: Use it** | |
+| [ ] | 15. Install Tailscale on your devices | 10 min |
+| [ ] | 16. Set the phone apps | 10 min |
+| [ ] | 17. Test from outside | 30 min |
+| [ ] | 18. Tell Plex the tailnet address | 5 min |
+| [ ] | 19. Plex for family without Tailscale (optional) | 10 min |
+| [ ] | 20. Invite family (optional) | 10 min |
+| [ ] | 21. Update the containers each week | 5 min |
+| | **Part D: Automatic deploys** | |
+| [ ] | 22. Make the GHCR package public | 5 min |
+| [ ] | 23. Protect `main` | 10 min |
+| [ ] | 24. Put the server on a clean `main` | 3 min |
+| [ ] | 25. Install `jq` and `curl` | 2 min |
+| [ ] | 26. Install the deploy timer | 3 min |
+| [ ] | 27. Do a dry run | 3 min |
+| [ ] | 28. Examine the timer and logs | 3 min |
+| [ ] | 29. Make the deploy hook secret | 5 min |
+| [ ] | 30. Make the Tailscale federated identity | 10 min |
+| [ ] | 31. Add the `TS_HOST` variable | 3 min |
+| [ ] | 32. Start the deploy hook | 5 min |
+| [ ] | 33. Test with a small pull request | 10 min |
+| [ ] | 34. Pause and roll back | 5 min |
+| [ ] | 35. Private repository (optional) | 20 min |
 
 ---
 
 ## Part A: Make the system safe
 
-Do Tasks 1 to 6 before you start anything remote.
+Every app is **locked** (Tasks 1 to 3) before you start the `remote` profile in Task 11.
 
-> **WARNING**
-> Do not start the `remote` profile before Tasks 2 and 3 are done. Without these tasks, a person on your tailnet can use the apps with no password. This can cause data loss.
+### Task 1. Lock qBittorrent
 
-### Task 1. Remove File Browser
+**Why:** qBittorrent can run programs. With a localhost bypass, every tailnet user gets in.
 
-**Why:** The app is not used, and it could read and delete all files.
-
-1. Pull the new `compose.yml` to the server.
-2. Stop and delete the old container with this command.
-
-```bash
-docker compose up -d --remove-orphans
-```
-
-> **CAUTION**
-> This command also removes each other container that is no longer in `compose.yml`. Read the list that Docker shows before you continue.
-
-3. Make sure this command shows no container.
-
-```bash
-docker ps -a --filter name=filebrowser
-```
-
-4. Optional: delete the old settings with this command.
-
-```bash
-sudo rm -r appdata/filebrowser
-```
-
-> **WARNING**
-> This command deletes a folder and all its files. You cannot undo it. Make sure the path is correct before you run it.
-
-> **NOTE**
-> If you set a custom `APPDATA` in `.env`, use that folder instead of `appdata`.
-
-**Result:** No container has the name `filebrowser`. Nothing listens on port 8181.
-
-### Task 2. Change the qBittorrent password and settings
-
-**Why:** qBittorrent can run programs. Caddy sends all remote traffic from the local address 127.0.0.1. A bypass option would let everyone in.
-
-1. Open `http://<SERVER-LAN-IP>:8080` in a browser.
-2. Sign in as `admin`. If you do not know the password, find it in the logs with this command.
-
-```bash
-docker logs qbittorrent
-```
-
-3. Open Tools > Options > Web UI.
-4. Type a new strong password in the Authentication section. Use a password that you use nowhere else.
-5. Make sure "Bypass authentication for clients on localhost" is off.
-6. Make sure "Bypass authentication for clients in whitelisted IP subnets" is off.
-7. Make sure "Enable reverse proxy support" is off. Do not change this option.
-8. Click Save.
-9. Open `.env` in a text editor.
-10. Write the new user name and password in the `RACK_QBITTORRENT_USERNAME` and `RACK_QBITTORRENT_PASSWORD` lines.
-11. Restart Rack so it reads the new values.
+1. Open `http://<SERVER-LAN-IP>:8080`. Sign in as `admin`. The first temporary password is in `docker logs qbittorrent`.
+2. In Tools > Options > Web UI, set a new user name and a strong, unique password.
+3. In the same page, keep these three options off: "Bypass authentication for clients on localhost", "Bypass authentication for clients in whitelisted IP subnets", and "Enable reverse proxy support". Click Save.
+4. In `.env`, write the user name and password in `RACK_QBITTORRENT_USERNAME` and `RACK_QBITTORRENT_PASSWORD`. Then restart Rack.
 
 ```bash
 docker compose up -d rack
 ```
 
-12. Open Radarr at `http://<SERVER-LAN-IP>:7878`. Open Settings > Download Clients.
-13. Open the qBittorrent entry. Type the new password. Click Save.
-14. Do the same in Sonarr at `http://<SERVER-LAN-IP>:8989`.
+5. If Radarr and Sonarr already use qBittorrent, type the new password in each one's Settings > Download Clients > qBittorrent. Click Test, then Save.
 
-**Result:** The Web UI asks for the new password. Radarr and Sonarr show a green test result for qBittorrent.
+**Result:** qBittorrent is locked. Rack shows qBittorrent stats. The Radarr and Sonarr test for qBittorrent is green.
 
 > **NOTE**
-> In Tailscale userspace mode, Caddy sees every tailnet client as 127.0.0.1. Reverse proxy support gives no benefit here. A ban after failed logins would lock out all tailnet users. Your protection is a strong password.
+> Reverse proxy support gives no benefit here: in Tailscale userspace mode, Caddy sees every tailnet client as 127.0.0.1, so a ban after failed logins would lock out all tailnet users. The strong password is the protection.
 
-### Task 3. Set authentication in Radarr, Sonarr and Prowlarr
+### Task 2. Lock Radarr, Sonarr and Prowlarr
 
-**Why:** The option "Disabled for Local Addresses" lets Caddy traffic in without a password. Caddy traffic always looks local.
+**Why:** "Disabled for Local Addresses" counts Caddy traffic as local, so it lets every tailnet user in.
 
-> **WARNING**
-> Do not use "Disabled for Local Addresses". With this option, each person on your tailnet can use the app with no password.
+Do these steps in Radarr (`:7878`), Sonarr (`:8989`) and Prowlarr (`:9696`):
 
-Do the steps below in each app. The addresses are:
+1. Open `http://<SERVER-LAN-IP>:<port>`. Open Settings > General. Click Show Advanced if you do not see Security.
+2. Set Authentication to **Forms** and Authentication Required to **Enabled**.
+3. Set a user name and a strong password, different for each app. Click Save, and restart the app if it asks.
 
-- Radarr: `http://<SERVER-LAN-IP>:7878`
-- Sonarr: `http://<SERVER-LAN-IP>:8989`
-- Prowlarr: `http://<SERVER-LAN-IP>:9696`
+**Result:** all three apps are locked.
 
-1. Open the address in a browser.
-2. Open Settings > General.
-3. Find the Security section. Click Show Advanced if you do not see it.
-4. Set Authentication to Forms.
-5. Set Authentication Required to Enabled.
-6. Type a user name.
-7. Type a strong password. Use a different password for each app.
-8. Click Save.
-9. Do what the app asks. It can ask you to restart.
-10. Sign in with the new login to make sure it works.
+### Task 3. Lock Immich and Seerr
 
-**Result:** Each app shows a sign-in form when you open it in a new private browser window.
+**Why:** Immich keeps your photos. Seerr lets other people request media.
 
-### Task 4. Check Immich and Seerr
+1. In `.env`, read `DB_PASSWORD`. If it is an example value (`change-me-to-a-secure-password` or `your-secure-password`) **and Immich has never started**, replace it with the output of `openssl rand -hex 24`. If Immich already runs, keep the old value: a new one locks Immich out of its database. Postgres has no published port, so the old value is a low risk.
+2. Open Immich at `http://<SERVER-LAN-IP>:2283`. Create the admin account if it does not exist. Optional: enable 2FA in Account Settings.
+3. Open Seerr at `http://<SERVER-LAN-IP>:5055`. In Settings > Users, keep only Plex accounts you approve.
 
-**Why:** Immich keeps your photos. Seerr lets other people ask for media.
+**Result:** `DB_PASSWORD` is not an example value (or you chose to keep the old one), Immich asks for a login, and the Seerr user list shows only people you know.
 
-1. Open the `.env` file.
-2. Find the `DB_PASSWORD` line.
-3. If it says `change-me-to-a-secure-password` or `your-secure-password`, you must change it.
+### Task 4. Close the router
 
-> **WARNING**
-> Change `DB_PASSWORD` only before the first start of Immich. If Immich already runs, a new value breaks the database link and Immich does not start. In that case, keep the old value. Postgres has no published port, so the risk is low.
+**Why:** UPnP lets programs open router ports with no warning. A port forward or open IPv6 puts the apps on the internet.
 
-4. To make a new password, type this command.
+Menus differ per router. Use its manual if you cannot find a setting.
 
-```bash
-openssl rand -hex 24
-```
+1. Set UPnP and NAT-PMP to off.
+2. Delete every port forward to the server. (Task 19 can add one for Plex later.)
+3. Set the IPv6 firewall to block inbound traffic by default.
+4. Make a DHCP reservation for the server. That address is `<SERVER-LAN-IP>`.
 
-5. Write the result in the `DB_PASSWORD` line of `.env`.
-6. Open Immich at `http://<SERVER-LAN-IP>:2283`.
-7. Create the admin account if you did not create it. If you want, enable 2FA in Account Settings.
-8. Open Seerr at `http://<SERVER-LAN-IP>:5055`.
-9. Open Settings > Users.
-10. Make sure that only Plex accounts you approve can sign in.
+**Result:** the router shows UPnP off, no port forwards, and the reservation. The server keeps its address after a restart.
 
-**Result:** `DB_PASSWORD` is not an example value, or you chose to keep the old value. The Seerr user list shows only people you know.
+### Task 5. Publish on the LAN address only
 
-### Task 5. Set the router
+**Why:** Docker-published ports bypass the `ufw` firewall. `BIND_ADDR` makes Docker publish the web UIs on the LAN address only.
 
-**Why:** UPnP lets a program open router ports with no warning. A port forward or open IPv6 makes the apps visible on the internet.
-
-Each router has different menus. Use the manual of your router if you cannot find a setting.
-
-1. Sign in to your router.
-2. Set UPnP to off.
-3. Set NAT-PMP to off.
-4. Delete all port forwards that point to the server.
-5. Find the IPv6 firewall setting. Make sure it blocks inbound traffic by default.
-6. Find the DHCP settings. Make a DHCP reservation for the server. The server then always gets the same LAN address.
-7. Write the reserved address. Use it as `<SERVER-LAN-IP>` in this guide.
-
-**Result:** The router shows no port forwards and UPnP is off. The server keeps the same LAN address after a restart.
-
-> **NOTE**
-> If you want Plex for family without Tailscale, you add one port forward in Task 20. Do not add it now.
-
-### Task 6. Set BIND_ADDR and check the exposure
-
-**Why:** `BIND_ADDR` makes Docker publish the web pages on the LAN address only. Docker ports bypass the `ufw` firewall.
-
-1. Open the `.env` file in a text editor.
-2. Find the line `BIND_ADDR=0.0.0.0`.
-3. Change it to `BIND_ADDR=<SERVER-LAN-IP>`. Write the real address, for example `BIND_ADDR=10.0.0.100`.
-4. Save the file.
-5. Apply the change.
+1. In `.env`, set `BIND_ADDR=<SERVER-LAN-IP>`, for example `BIND_ADDR=10.0.0.100`. Apply it.
 
 ```bash
 docker compose up -d
 ```
 
-6. Run the exposure check.
+2. Run the exposure check.
 
 ```bash
 ./scripts/check-exposure.sh
 ```
 
-7. Read the output. Rack (4000), Netdata (19999) and FlareSolverr (8191) must not show on all interfaces.
-8. If the script shows a warning, examine the `BIND_ADDR` line and do step 5 again.
-
-**Result:** The script ends with no warning. The apps still open at `http://<SERVER-LAN-IP>:<port>` from your LAN.
-
-> **NOTE**
-> Plex (32400) stays on all interfaces on purpose. qBittorrent no longer publishes a torrent port (it runs behind the gluetun VPN). The script does not warn about them.
+**Result:** the check exits with no warning, and the apps still open at `http://<SERVER-LAN-IP>:<port>`. Plex (32400) stays on all interfaces on purpose; the script expects it.
 
 ---
 
 ## Part B: Configure Tailscale
 
-### Task 7. Make the Tailscale account
+### Task 6. Make the Tailscale account
 
-**Why:** The Tailscale account decides who can enter your tailnet. The account is the key to your server.
+**Why:** the Tailscale account decides who joins your tailnet. It is the key to your server.
 
-1. Open `https://tailscale.com` in a browser.
-2. Click Get started.
-3. Sign in with a Google, GitHub, Apple or Microsoft account.
-4. Make sure the account has 2FA enabled. If it does not, enable 2FA in the settings of that provider.
+1. Open `https://tailscale.com`, click Get started, and sign in with a Google, GitHub, Apple or Microsoft account.
+2. Make sure that account has 2FA on, in the settings of that provider.
 
-**Result:** You see the Tailscale admin console at `https://login.tailscale.com/admin`.
+**Result:** you see the admin console at `https://login.tailscale.com/admin`.
 
-### Task 8. Enable MagicDNS and HTTPS certificates
+### Task 7. Enable MagicDNS and HTTPS certificates
 
-**Why:** MagicDNS gives the server a name. The HTTPS certificate makes the browser padlock work.
+**Why:** MagicDNS gives the server a name. The HTTPS certificate makes the padlock work.
 
-1. In the admin console, open the DNS page.
-2. Make sure MagicDNS is on. Enable it if it is off.
-3. Find the tailnet name. It looks like `tail1234.ts.net`.
-4. Write the name. This is your `<YOUR-TAILNET>`.
-5. Find the section HTTPS Certificates.
-6. Click Enable.
+1. In the admin console, open DNS. Make sure MagicDNS is on.
+2. Optional: rename the tailnet now. Certificate logs make `homelab.<YOUR-TAILNET>` public (the name only; nobody can reach it).
+3. Write down the tailnet name. It is `<YOUR-TAILNET>`.
+4. In HTTPS Certificates, click Enable.
 
-**Result:** The DNS page shows MagicDNS on and your tailnet name. HTTPS Certificates shows as enabled.
+**Result:** the DNS page shows MagicDNS on, your tailnet name, and HTTPS Certificates enabled.
 
-> **NOTE**
-> Public certificate logs show the name `homelab.<YOUR-TAILNET>`. The name shows only that the host exists. You cannot reach the host with it. If you want a random name, rename the tailnet on the DNS page before step 4.
+### Task 8. Paste the access policy
 
-### Task 9. Paste the access rules
+**Why:** the policy decides who reaches which port. Admins get every port. Family gets the homepage (443), Plex, Immich and Seerr. GitHub's deploy node (`tag:ci`, Part D) gets port 9000 only.
 
-**Why:** The rules decide who can reach which port. You get all ports. Family gets only the family homepage, Plex, Immich and Seerr.
+The policy uses `grants`, and its `tests` block makes the console refuse a policy that gives the wrong access.
 
-1. On the server, show the policy file.
+1. Show the file and copy all of it.
 
 ```bash
 cat docs/remote-access/tailscale-policy.example.hujson
 ```
 
-2. Copy all the text.
-3. In the admin console, open the Access controls page.
-4. Delete the old text. Paste the new text.
-5. Find the line that starts with `"group:family"`.
-6. Replace `family-member@example.com` with the real email of each family member. Separate the emails with commas.
-7. Find the `"tests"` section near the end. Find the line `"src": "family-member@example.com"`.
-8. Replace that email with one email from step 6. The test then checks a real family member.
-9. If you have no family now, write `"group:family": [],` in step 6.
-10. Then delete the test block that starts with `"src": "family-member@example.com"`. Keep the `tag:ci` test block.
-11. Click Save.
+2. In the admin console, open Access controls. Replace all the text with the copy.
+3. In `"group:family"`, replace `family-member@example.com` with the real emails, separated by commas.
+4. In `"tests"`, set the `"src"` of the first block to one of those emails.
+5. With no family yet: write `"group:family": [],` and delete the first test block. Keep the `tag:ci` block.
+6. Click Save.
 
-**Result:** The page shows a green message that the policy is saved. It shows no errors.
+**Result:** the console saves the policy with no error, and every test passes.
 
 > **NOTE**
-> The error "want: Accept, got: Drop" for `family-member@example.com` means step 8 is not done. The test user must be in `group:family`.
+> "want: Accept, got: Drop" for `family-member@example.com` means step 4 is not done.
 
-> **NOTE**
-> The file uses `grants`. The old `acls` syntax is not used. The admin console must accept the file without errors. If it shows an error, do not continue.
+### Task 9. Make the auth key
 
-> **NOTE**
-> Do this task before Task 10. The tag `tag:homelab` must exist before you make the auth key.
+**Why:** the server uses the key once, to join the tailnet. Task 8 must be done first: the key needs `tag:homelab`.
 
-### Task 10. Make the auth key
+1. In the admin console, open Settings > Keys and click Generate auth key.
+2. Set Reusable **off**, Ephemeral **off**, Pre-approved **on**, tag `tag:homelab`, expiry 1 day.
+3. Click Generate key. Copy it: the page shows it only once.
 
-**Why:** The server uses the key to join your tailnet one time.
+**Result:** you have a key that starts with `tskey-auth-`. Keep it only in `.env` until Task 13 removes it.
 
-> **WARNING**
-> The auth key works like a password. Do not send it to other people. Do not save it in a file other than `.env`. Delete it from `.env` in Task 14.
+### Task 10. Write the Tailscale values in `.env`
 
-> **CAUTION**
-> Never add `--advertise-routes` to `TS_EXTRA_ARGS`. It makes every container reachable from the tailnet. FlareSolverr is also reachable then.
+**Why:** the `tailscale` and `caddy` containers read their settings from `.env`.
 
-1. In the admin console, open Settings > Keys.
-2. Click Generate auth key.
-3. Set Reusable to off.
-4. Set Ephemeral to off.
-5. Set Pre-approved to on.
-6. Click Add tags. Choose `tag:homelab`.
-7. Set the expiry to 1 day.
-8. Click Generate key.
-9. Copy the key. The page shows it only one time.
+1. In `.env`, find the "Remote access" section (copy it from `.env.example` if it is missing). Set:
+   - `TS_AUTHKEY` to the key from Task 9.
+   - `TS_TAILNET` to `<YOUR-TAILNET>`.
+   - `TS_HOSTNAME=homelab`. Change it only if the tailnet already has a machine named `homelab`.
+   - `TS_EXTRA_ARGS` empty. It must never contain `--advertise-routes`: that makes every container, FlareSolverr too, reachable from the tailnet.
+2. Uncomment `COMPOSE_PROFILES=remote`. Every `docker compose` command, and every deploy in Part D, then includes `tailscale` and `caddy`.
 
-**Result:** You have a key that starts with `tskey-auth-`.
+**Result:** `.env` has the key, the tailnet name, `TS_HOSTNAME=homelab` and `COMPOSE_PROFILES=remote`.
 
-### Task 11. Write the Tailscale values in `.env`
+### Task 11. Start the `remote` profile
 
-**Why:** The containers read their settings from `.env`.
+**Why:** this checks the Caddyfile before the containers start.
 
-1. Open the `.env` file in a text editor.
-2. Find the section "Remote access". If it is not there, copy it from `.env.example`.
-3. Set `TS_AUTHKEY` to the key from Task 10.
-4. Set `TS_TAILNET` to `<YOUR-TAILNET>`, for example `TS_TAILNET=tail1234.ts.net`.
-5. Keep `TS_HOSTNAME=homelab`. Change it only if a machine named `homelab` is already in your tailnet.
-6. Keep `TS_EXTRA_ARGS` empty.
-7. If you want the `remote` profile in each command, remove the `#` from the line `COMPOSE_PROFILES=remote`. The deploy timer (Part D) uses only this line. It does not use `--profile remote`.
-8. Save the file.
-
-**Result:** `.env` has your key, your tailnet name and the host name `homelab`.
-
-### Task 12. Check the images and start the `remote` profile
-
-**Why:** This task checks the images and the Caddyfile before it starts the `tailscale` container and the `caddy` container.
-
-1. Prepare the folders. The script makes the `tailscale` and `caddy` folders.
+1. Make the folders (use `sudo` if it asks for rights).
 
 ```bash
 ./setup.sh
@@ -351,474 +221,322 @@ cat docs/remote-access/tailscale-policy.example.hujson
 2. Download the images.
 
 ```bash
-docker compose --profile remote pull
+docker compose pull
 ```
 
-3. Validate the Caddyfile.
+3. Validate the Caddyfile with the image that `compose.yml` pins.
 
 ```bash
-docker run --rm -e CADDY_DOMAIN=homelab.example.ts.net -v "$PWD/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2.11.7 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+docker run --rm -e CADDY_DOMAIN=homelab.example.ts.net -v "$PWD/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" "$(docker compose config --images | grep '^caddy:')" caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 ```
 
-NOTE: This command does not use the `tailscale` container. Thus, it works before the containers start.
-
-4. Make sure the command ends with "Valid configuration". If it does not, do not continue.
-5. Start the containers.
+4. Start the containers.
 
 ```bash
-docker compose --profile remote up -d
+docker compose up -d
 ```
 
-6. Wait 1 minute.
-7. Examine the status of the containers.
+**Result:** step 3 ends with "Valid configuration", and the admin console Machines page shows `homelab` with `tag:homelab`.
+
+### Task 12. Examine the new containers
+
+**Why:** these checks find faults before you test from a phone.
+
+1. Wait 1 minute. Show the status.
 
 ```bash
-docker compose --profile remote ps
+docker compose ps tailscale caddy
 ```
 
-**Result:** The Caddyfile is valid. The `tailscale` and `caddy` containers run. The Tailscale admin console shows a new machine named `homelab` with the tag `tag:homelab`.
-
-> **NOTE**
-> If `./setup.sh` says that you need more rights, type `sudo ./setup.sh`. The script uses `chown`.
-
-### Task 13. Examine the new containers on the server
-
-**Why:** These checks find faults before you test from a phone.
-
-1. Make sure the health check reports healthy.
-
-```bash
-docker compose --profile remote ps
-```
-
-2. Read the logs of Caddy.
+2. Read the Caddy log. Find the line that says Caddy got a certificate for `homelab.<YOUR-TAILNET>`.
 
 ```bash
 docker compose logs caddy
 ```
 
-3. Find the line that says Caddy got a certificate for `homelab.<YOUR-TAILNET>`. Make sure the log shows no error.
-4. In the admin console, open the Machines page.
-5. Make sure the machine name is exactly `homelab`. The name must not end in `-1`.
-6. Restart `tailscale`.
+3. Restart `tailscale`, wait 1 minute, and show the status again. Caddy restarts with it.
 
 ```bash
 docker compose restart tailscale
 ```
 
-7. Wait 1 minute. Make sure Caddy still works.
-8. If Caddy does not work, recreate it.
-
-```bash
-docker compose --profile remote up -d --force-recreate caddy
-```
-
-**Result:** Both containers are healthy. Caddy has its certificate. The machine name is `homelab`.
-
-### Task 14. Remove the auth key
-
-**Why:** The server stays signed in without the key. A key in `.env` is a risk.
-
-1. Open the `.env` file.
-2. Delete the value of `TS_AUTHKEY`. Keep the line `TS_AUTHKEY=`.
-3. Save the file.
-4. Apply the change.
-
-```bash
-docker compose --profile remote up -d
-```
-
-5. In the admin console, open Settings > Keys.
-6. If the key shows in the list, click Revoke.
-
-**Result:** `.env` has no key. The machine `homelab` is still online in the admin console.
-
-### Task 15. Enable device approval
-
-**Why:** A new device then needs your approval before it can join the tailnet.
-
-1. In the admin console, open Settings > Device management.
-2. Enable Device approval.
-3. If you want more protection, enable Tailnet Lock. This is optional.
-
-**Result:** The page shows Device approval on. The machine `homelab` stays online.
+**Result:** both containers are healthy after the restart, the Caddy log has the certificate and no error, and the machine name is exactly `homelab` (not `homelab-1`).
 
 > **NOTE**
-> A new device needs your approval to join. Open the Machines page and click Approve for each new device. Do this in Task 16 for your phone and laptop.
+> If Caddy is not healthy after step 3, run `docker compose up -d --force-recreate caddy`.
+
+### Task 13. Remove the auth key
+
+**Why:** the node stays signed in from its saved state (`appdata/tailscale`). A key in `.env` is a credential anything with the Docker socket can read.
+
+1. In `.env`, empty the value: keep the line as `TS_AUTHKEY=`. Recreate the container without the key.
+
+```bash
+docker compose up -d
+```
+
+2. In the admin console, open Settings > Keys. Revoke the key if it is still listed.
+
+**Result:** `.env` has no key, no auth key is listed, and `homelab` is still online.
+
+### Task 14. Enable device approval
+
+**Why:** a new device then waits for your approval before it joins.
+
+1. In the admin console, open Settings > Device management. Enable Device approval.
+2. Optional: enable Tailnet Lock for more protection.
+
+**Result:** Device approval is on, and `homelab` stays online. From now on, approve each new device on the Machines page.
 
 ---
 
 ## Part C: Use it
 
-### Task 16. Install Tailscale on your phone and laptop
+### Task 15. Install Tailscale on your phone and laptop
 
-**Why:** A device must run Tailscale to reach the server from outside.
+1. Install Tailscale on the phone (app store) and the laptop (`https://tailscale.com/download`). Sign in on both with the Task 6 account.
+2. On the Machines page, click Approve for each new device.
+3. On the phone, turn Tailscale on. Open `https://homelab.<YOUR-TAILNET>:4000` (Rack) and `https://homelab.<YOUR-TAILNET>` (family homepage).
 
-1. Install the Tailscale app on your phone from the app store.
-2. Open the app. Sign in with the account from Task 7.
-3. Install the Tailscale app on your laptop. Get it from `https://tailscale.com/download`.
-4. Sign in on the laptop.
-5. If the admin console shows a device that waits for approval, open the Machines page and click Approve.
-6. On the phone, set Tailscale to on.
-7. Open `https://homelab.<YOUR-TAILNET>:4000` in the phone browser. This is the Rack address.
-8. Open `https://homelab.<YOUR-TAILNET>` in the phone browser. This is the family homepage.
+**Result:** both pages load with a padlock. Rack's links open each app. The homepage shows three tiles: Plex, Immich and Seerr.
 
-**Result:** The Rack address shows a padlock and the Rack dashboard. The links in Rack open each app. The family homepage shows three tiles.
+### Task 16. Set the phone apps
 
-### Task 17. Set the phone apps
+Keep Tailscale on.
 
-**Why:** The apps need the new address to work away from home.
+1. In the Immich app, set the server URL to `https://homelab.<YOUR-TAILNET>:2283`. Sign in and enable background backup.
+2. Open the Plex app and sign in. It finds the server by itself (Task 18 makes this work away from home).
+3. Other apps (Seerr in a browser, nzb360, LunaSea): use `https://homelab.<YOUR-TAILNET>:<port>`, with the same port as on the LAN.
 
-Keep Tailscale on during these steps.
+**Result:** the Immich app shows your photos, and `https://homelab.<YOUR-TAILNET>:5055` shows the Seerr sign-in page.
 
-1. Open the Immich app.
-2. Set the server URL to `https://homelab.<YOUR-TAILNET>:2283`.
-3. Sign in.
-4. Enable background backup.
-5. Open the Plex app. Sign in as usual. Plex detects the server automatically.
-6. For Seerr, open `https://homelab.<YOUR-TAILNET>:5055` in the phone browser.
-7. If you use an app such as nzb360 or LunaSea, use `https://homelab.<YOUR-TAILNET>:<port>`. The port is the same as on the LAN.
+### Task 17. Test from outside
 
-**Result:** The Immich app shows your photos. Seerr shows the sign-in page.
+**Why:** this is the security test of the whole setup: the apps work with Tailscale and are closed without it. Run it again after any router or compose change.
 
-### Task 18. Test from outside
+Use mobile data with Wi-Fi off. A test on your home Wi-Fi tells you nothing about the internet.
 
-**Why:** This test shows that the system works with Tailscale and is closed without it. It uses the checks from section 6 of the security report.
+**On the phone:**
 
-> **CAUTION**
-> Set Wi-Fi to off on the phone. Use mobile data. A test on your home Wi-Fi tells you nothing about the internet.
+1. With Tailscale **off**, open `https://homelab.<YOUR-TAILNET>:8989`. It must not load.
+2. With Tailscale **on**, open each address. Each must show a padlock and a sign-in form, never a dashboard:
+   - `:8989` (Sonarr), `:7878` (Radarr), `:9696` (Prowlarr), `:8080` (qBittorrent)
+3. `https://homelab.<YOUR-TAILNET>:8191` must not load: FlareSolverr has no Caddy site.
+4. `https://homelab.<YOUR-TAILNET>:4000` must open Rack for you, the admin.
 
-1. On the phone, set Wi-Fi to off.
-2. In the Tailscale app, set Tailscale to off.
-3. Open `https://homelab.<YOUR-TAILNET>:8989` in the browser.
-4. Make sure the page does not load. The name does not resolve, or the browser shows a time-out.
-5. In the Tailscale app, set Tailscale to on.
-6. Open `https://homelab.<YOUR-TAILNET>:8989` again.
-7. Make sure the browser shows a padlock and the Sonarr sign-in form. The page must not show the Sonarr dashboard.
-8. Do the same for these addresses. Each one must show a sign-in form.
-   - `https://homelab.<YOUR-TAILNET>:7878` (Radarr)
-   - `https://homelab.<YOUR-TAILNET>:9696` (Prowlarr)
-   - `https://homelab.<YOUR-TAILNET>:8080` (qBittorrent)
-9. Open `https://homelab.<YOUR-TAILNET>:8191`. The page must not load. FlareSolverr is never available through Caddy.
-10. Open `https://homelab.<YOUR-TAILNET>:4000`. The Rack dashboard must open for you, the admin.
-11. Set Wi-Fi to on again.
-12. On the server, run the exposure check one more time.
+**On the server:**
+
+5. The exposure check passes.
 
 ```bash
 ./scripts/check-exposure.sh
 ```
 
-12. On the server, list all host listeners. With `BIND_ADDR` set, the web pages must show only the LAN address.
+6. Host listeners: only Plex (32400 and its discovery ports) and `sshd` may show on `0.0.0.0`; web UIs show only `<SERVER-LAN-IP>`.
 
 ```bash
 sudo ss -tulpn | grep -Ev '127\.0\.0\.1|\[::1\]'
 ```
 
-13. Read the output. Only Plex (32400), the Plex discovery ports and `sshd` can show on 0.0.0.0.
-14. On the server, list the ports that Docker publishes for each container.
+7. Published ports: `flaresolverr`, `tailscale`, `caddy` and `deploy-hook` print nothing.
 
 ```bash
 docker ps --format '{{.Names}}' | xargs -n1 docker port
 ```
 
-15. Make sure `flaresolverr`, `tailscale` and `caddy` print nothing.
-16. Make sure Caddy publishes no host ports. The result must show `container:` and the ID of `tailscale`.
+8. Caddy shares the `tailscale` network: the output is `container:<id of tailscale>`.
 
 ```bash
 docker inspect caddy --format '{{.HostConfig.NetworkMode}}'
 ```
 
-17. Make sure the Caddy admin API does not answer on the server. The command must fail.
+9. The Caddy admin API is off: the command fails (`rc` is not 0).
 
 ```bash
-docker compose --profile remote exec caddy wget -qO- http://127.0.0.1:2019/config/ ; echo "rc=$?"
+docker compose exec caddy wget -qO- http://127.0.0.1:2019/config/ ; echo "rc=$?"
 ```
 
-18. On the laptop with Tailscale on, make sure port 2019 does not answer from the tailnet. The command must fail or time out.
+10. Immich sees no unrelated secrets: the command prints nothing but `rc=1`.
 
 ```bash
-curl -m 10 http://homelab.<YOUR-TAILNET>:2019/config/
+docker exec immich_server env | grep -E 'RACK_|TS_AUTHKEY|QBITTORRENT' ; echo "rc=$?"
 ```
 
-19. On the server, make sure Immich does not see unrelated secrets. The command must print nothing.
-
-```bash
-docker exec immich_server env | grep RACK_
-```
-
-20. On the server, find your public IPv4 address.
+11. Write down the public IPv4 address, and the global IPv6 address if there is one.
 
 ```bash
 curl ifconfig.me
 ```
 
-21. On the server, find your global IPv6 address, if you have one.
-
 ```bash
 ip -6 addr show scope global
 ```
 
-22. Connect the laptop to the phone hotspot. Set Tailscale on the laptop to off.
-23. Run this command on the laptop. Replace `<PUBLIC-IP>` with the address from step 20.
+**On the laptop:**
+
+12. With Tailscale on, port 2019 must fail or time out.
+
+```bash
+curl -m 10 http://homelab.<YOUR-TAILNET>:2019/config/
+```
+
+13. Connect to the phone hotspot and turn Tailscale off. Scan both addresses from step 11. Every port must be closed or filtered, except 32400 if you did Task 19.
 
 ```bash
 nmap -Pn -p 1-65535 <PUBLIC-IP>
 ```
 
-24. If step 21 gave an IPv6 address, run this command on the laptop. Replace `<SERVER-IPV6>` with that address.
-
 ```bash
 nmap -6 -Pn -p 1-65535 <SERVER-IPV6>
 ```
 
-25. Read the results of both scans. All ports must show as closed or filtered. Port 32400 can be open if you did Task 20.
-26. Open `https://www.shodan.io/host/<PUBLIC-IP>` in a browser. Replace `<PUBLIC-IP>` with the address from step 20.
-27. Make sure Shodan shows nothing, or shows only Plex. Check again after one week.
+14. Open `https://www.shodan.io/host/<PUBLIC-IP>`. It must show nothing, or only Plex. Check again after one week.
 
-**Result:** Without Tailscale, no page loads. With Tailscale, each page loads with a padlock and asks for a login. The server checks, the port scans and Shodan show no exposed port.
+**Result:** every check above passes.
 
-### Task 19. Tell Plex the tailnet address
+### Task 18. Tell Plex the tailnet address
 
-**Why:** Plex tells its apps which addresses to use. The apps then find the server over the tailnet.
+**Why:** Plex tells its apps which addresses to try. With the tailnet address listed, the apps find the server over Tailscale.
 
-1. Open Plex at `http://<SERVER-LAN-IP>:32400/web`.
-2. Open Settings > Network.
-3. Find "Custom server access URLs".
-4. Type this text in the field.
+1. Open `http://<SERVER-LAN-IP>:32400/web`. Open Settings > Network.
+2. Set "Custom server access URLs" to:
 
 ```text
 http://<SERVER-LAN-IP>:32400,https://homelab.<YOUR-TAILNET>:32400
 ```
 
-5. Find "List of IP addresses and networks that are allowed without auth".
-6. Make sure this field is EMPTY.
-7. Click Save Changes.
-8. Optional: on a phone, set Wi-Fi to off and Tailscale to on.
-9. Optional: play a video in the Plex app.
-10. Optional: on the server, open the Plex dashboard and examine the stream.
-11. Optional: note if the stream shows as "Local".
+3. Keep "List of IP addresses and networks that are allowed without auth" **empty**. An entry such as 127.0.0.1, 172.16.0.0/12 or your LAN range lets every tailnet user skip the Plex sign-in.
+4. Click Save Changes.
 
-**Result:** The Plex app on your phone detects the server when Tailscale is on and Wi-Fi is off.
-
-> **WARNING**
-> If the allowed-without-auth list contains 127.0.0.1, 172.16.0.0/12 or your LAN range, every user through Tailscale skips the Plex sign-in. Keep the list empty.
+**Result:** with Wi-Fi off and Tailscale on, the Plex phone app finds the server and plays a video.
 
 > **NOTE**
-> If the stream shows as "Local", you may not need a Plex Pass to watch video from outside the home. This result is not certain. Otherwise, you need a Plex Pass on your account, or the viewer needs a Remote Watch Pass.
+> If the Plex dashboard shows that stream as "Local", you may not need a Plex Pass for it. This is not certain. Otherwise, remote streaming needs a Plex Pass on your account or a Remote Watch Pass for the viewer.
 
-### Task 20. Plex for family without Tailscale (optional)
+### Task 19. Plex for family without Tailscale (optional)
 
-**Why:** Some family members do not want to install Tailscale. Plex has its own remote access with its own login.
+**Why:** Plex has its own remote access with its own login, for family who do not install Tailscale.
 
-> **WARNING**
-> This task opens one port on your router. Open only TCP port 32400. Do not open any other port. A second open port can expose your apps to the internet.
+This task opens exactly one router port: TCP 32400. That port is the only forward the router ever has.
 
-1. Open Plex at `http://<SERVER-LAN-IP>:32400/web`.
-2. Open Settings > Remote Access.
-3. Click Enable Remote Access.
-4. Click Show Advanced.
-5. Select "Manually specify public port". Type `32400`.
-6. Click Apply.
-7. In your router, add a port forward. Forward TCP port 32400 to `<SERVER-LAN-IP>` port 32400.
-8. Make sure UPnP is still off.
-9. Wait for Plex to show a green check mark for Remote Access.
+1. In Plex, open Settings > Remote Access. Click Enable Remote Access, then Show Advanced.
+2. Select "Manually specify public port", type `32400`, and click Apply.
+3. In the router, forward TCP 32400 to `<SERVER-LAN-IP>` port 32400. UPnP stays off.
 
-**Result:** Plex shows "Fully accessible outside your network". No other port is forwarded.
+**Result:** Plex shows "Fully accessible outside your network", and the router has this one forward only. Viewers need a Plex Pass on your account or a Remote Watch Pass.
 
-> **NOTE**
-> To watch video from outside the home, you need a Plex Pass on your account. Or the viewer needs a Remote Watch Pass.
+### Task 20. Invite family (optional)
 
-### Task 21. Invite family to the tailnet (optional)
+**Why:** family on the tailnet reach the homepage, Plex, Immich and Seerr, and nothing else.
 
-**Why:** Family members who use Tailscale can reach Plex, Immich and Seerr. They cannot reach the other apps.
+1. In the admin console, open Users. Invite the family member by email.
+2. In Access controls, add the same email to `"group:family"`. Click Save.
+3. When the family member has installed Tailscale and accepted, click Approve for the device on the Machines page.
+4. Send them `https://homelab.<YOUR-TAILNET>` (the family homepage) to save as a bookmark.
+5. Ask them to open the homepage tiles (Plex, Immich, Seerr), then `:4000` and `:8989`.
 
-1. In the admin console, open the Users page.
-2. Click Invite external users or Invite users.
-3. Type the email of the family member. Click Invite.
-4. Open the Access controls page.
-5. Add the same email to the list `"group:family"`.
-6. Click Save.
-7. Tell the family member to install Tailscale and accept the invite.
-8. Open the Machines page. Click Approve for the new device.
-9. Ask the family member to test these addresses. All three must load.
-   - `https://homelab.<YOUR-TAILNET>:32400`
-   - `https://homelab.<YOUR-TAILNET>:2283`
-   - `https://homelab.<YOUR-TAILNET>:5055`
-10. Send the family member this address: `https://homelab.<YOUR-TAILNET>`. This is the family homepage.
-11. Tell the family member to save the address as a bookmark on the phone.
-12. Ask the family member to open the family homepage. The page must show tiles for Plex, Immich and Seerr.
-13. Ask the family member to open `https://homelab.<YOUR-TAILNET>:4000`. The page must not load.
-14. Ask the family member to open `https://homelab.<YOUR-TAILNET>:8989`. The page must not load.
+**Result:** the homepage and its three tiles load for them, and `:4000` and `:8989` time out. The free plan allows up to 6 users.
 
-**Result:** Family can use ports 443 (homepage), 32400, 2283 and 5055. The ports 4000 (Rack), 19999, 8080 and 8989 time out for them.
+### Task 21. Update the containers each week
 
-> **NOTE**
-> The free plan allows up to 6 users.
+**Why:** old images can have known faults. Update on purpose, not by chance.
 
-### Task 22. Update the containers each week
-
-**Why:** Old images can have known faults. Update on purpose and not by chance.
-
-1. Read the release notes for Netdata and Plex.
-2. Download and start the new images.
+1. Read the release notes for Netdata and Plex (they have the most host access).
+2. Download and start the new images. `COMPOSE_PROFILES` in `.env` (Task 10) brings in `tailscale`, `caddy` and `deploy-hook`.
 
 ```bash
-docker compose --profile remote pull && docker compose --profile remote up -d --build
+docker compose pull && docker compose up -d
 ```
 
-3. Every few months, examine Docker Hub for newer tags of `tailscale/tailscale` and `caddy`.
-4. Change the tags in `compose.yml` by hand. The tags are now `tailscale/tailscale:v1.104.4` and `caddy:2.11.7`.
+3. Every few months, look on Docker Hub for newer tags of `tailscale/tailscale` and `caddy`. The pinned tags are the `image:` lines in `compose.yml`. Change them in a pull request, so the server stays on a clean `main` (Task 24).
 
-**Result:** `docker compose --profile remote ps` shows the status "running" for all containers.
+**Result:** `docker compose ps` shows every container running and healthy.
+
+> **NOTE**
+> `docker compose up -d --build` builds Rack on the server instead of using the image that CI built. Use it only to test a local change to `rack/`.
 
 ---
 
 ## Part D: Automatic deploys
 
-Do these tasks once. Then the server deploys each change from the `main` branch by itself. Read [docs/deploy.md](../deploy.md) first.
+Do these tasks once. Then the server deploys each green change on `main` by itself. Read [deploy.md](../deploy.md) first.
 
-> **NOTE**
-> The server asks GitHub for new releases. GitHub does not connect to your home. You open no port and you give GitHub no key.
+The server asks GitHub for new releases. GitHub never gets a login to the server.
 
-### Task 23. Make the GHCR package public
+### Task 22. Make the GHCR package public
 
-**Why:** The server downloads the Rack image with no login. A private package needs a token on the server.
+**Why:** the server then downloads the Rack image with no login. A private repository does Task 35 instead.
 
-**Before you start:** Wait for the first run of the `Release` workflow. It must finish with a green mark. The package does not exist before this run.
+The package exists only after the first `Release` workflow run is green.
 
-1. Open `https://github.com` in a browser. Sign in.
-2. Click your profile picture. Click Your profile.
-3. Click the Packages tab.
-4. Click `homelab-rack`.
-5. Click Package settings.
-6. Find the Danger Zone section. Click Change visibility.
-7. Select Public.
-8. Type the name of the package to confirm.
-9. Click the confirm button.
+1. On GitHub, open your profile, then Packages, then `homelab-rack`.
+2. Open Package settings. In Danger Zone, click Change visibility, select Public, and type the package name to confirm.
 
-**Result:** The package page shows the label "Public".
+**Result:** the package page shows "Public".
 
-> **NOTE**
-> If the repository stays private, do Task 37 instead.
+### Task 23. Protect the main branch
 
-### Task 24. Protect the main branch
+**Why:** the server runs the code on `main`. Whoever can change `main` can run code on your server.
 
-**Why:** The server runs the code of `main`. A person who can change `main` can run code on your server. Branch rules and 2FA stop this.
+1. In the repository, open Settings > Rules > Rulesets (or Branches), and add a ruleset (or classic rule) for `main`.
+2. Turn on "Require a pull request before merging".
+3. Turn on "Require status checks to pass" with the five checks of `ci.yml`: `compose`, `shell`, `hook`, `rack` and `image`. Leave out `release`: it runs only after a merge, so a pull request would wait for it forever.
+4. Turn on "Block force pushes" and "Restrict deletions". Save.
+5. In your GitHub account, open Settings > Password and authentication. Turn on 2FA with an authenticator app or a passkey.
 
-1. Open the repository on GitHub. Click Settings.
-2. Click Branches. Or click Rules, then Rulesets.
-3. Click Add branch ruleset, or Add classic branch protection rule.
-4. Set the branch name pattern to `main`.
-5. Turn on "Require a pull request before merging".
-6. Turn on "Require status checks to pass".
-7. Add the five checks from the workflow `ci.yml`: `compose`, `shell`, `hook`, `rack` and `image`.
-8. Do not add the check `release`. It runs only after the merge. A pull request cannot get it, so the pull request cannot merge.
-9. Turn on "Block force pushes".
-10. Turn on "Restrict deletions".
-11. Click Create, or click Save changes.
-12. Click your profile picture. Click Settings.
-13. Click Password and authentication.
-14. Turn on two-factor authentication. Use an authenticator app or a passkey.
+**Result:** a direct push to `main` is refused, a pull request merges only with green checks, and your account has 2FA.
 
-**Result:** A direct push to `main` is refused. A pull request cannot merge until the checks are green.
+### Task 24. Put the server on a clean main
 
-> **WARNING**
-> Do not skip this task. Without it, a stolen GitHub password gives control of your server.
+**Why:** the deploy script refuses to run on another branch or with local changes.
 
-### Task 25. Put the repository on a clean main
-
-**Why:** The deploy script refuses to run when the repository has local changes. It also refuses to run on another branch.
-
-1. On the server, open a terminal in the `homelab` folder.
-2. Switch to the `main` branch.
+1. In the `homelab` folder, switch to `main` and pull.
 
 ```bash
-git checkout main
+git checkout main && git pull
 ```
 
-3. Get the newest code.
-
-```bash
-git pull
-```
-
-4. Examine the status.
+2. Show the status. Put local changes away with `git stash` if it lists any.
 
 ```bash
 git status
 ```
 
-5. Make sure the output says "nothing to commit, working tree clean".
-6. If the output lists changed files, keep or discard them with `git stash` before you continue.
-7. If you use remote access (Part B), open `.env`. Make sure the line `COMPOSE_PROFILES=remote` has no `#` before it.
+**Result:** `git status` shows `On branch main` and "working tree clean", and `.env` has `COMPOSE_PROFILES=remote` uncommented if you use remote access. (`.env` and `appdata/` are gitignored; deploys never change them.)
 
-**Result:** `git status` shows `On branch main` and "working tree clean".
+### Task 25. Install jq and curl
 
-> **NOTE**
-> The files `.env` and `appdata` are not in Git. The deploy script does not change them.
-
-> **WARNING**
-> The deploy script does not use `--profile remote`. If `COMPOSE_PROFILES=remote` is not in `.env`, the deploys do not update `tailscale` and `caddy`. The containers continue to run.
-
-### Task 26. Install jq and curl
-
-**Why:** The deploy script uses `curl` to ask GitHub. It uses `jq` to read the answer.
-
-1. Install the two tools.
+**Why:** the deploy script asks GitHub with `curl` and reads the answer with `jq`.
 
 ```bash
 sudo apt install jq curl
 ```
 
-2. Make sure that both tools work.
+**Result:** `jq --version && curl --version | head -n 1` shows two versions.
 
-```bash
-jq --version && curl --version | head -n 1
-```
+### Task 26. Install the deploy timer
 
-**Result:** The terminal shows a version for `jq` and for `curl`.
+**Why:** the timer runs the deploy script every hour. It is the fallback for the push trigger (Tasks 29 to 32).
 
-### Task 27. Install the deploy timer
-
-**Why:** The timer starts the deploy script every hour. It is the fallback when the push trigger (Tasks 30 to 34) does not work.
-
-**Before you start:** Make sure your user is in the `docker` group. Type `id` to see your groups.
-
-1. In the `homelab` folder, run the install script.
+Your user must be in the `docker` group (`id` lists it).
 
 ```bash
 ./deploy/install.sh
 ```
 
-2. Type your password when `sudo` asks for it.
-3. Read the last line of the output.
+**Result:** the output ends with "Installed", and `deploy/deploy.env` exists. The script is safe to run again; `./deploy/install.sh --uninstall` removes the timer.
 
-**Result:** The output says "Installed". The file `deploy/deploy.env` exists.
+### Task 27. Do a dry run
 
-> **NOTE**
-> The script is safe to run again. To remove the timer, type `./deploy/install.sh --uninstall`.
-
-### Task 28. Do a dry run
-
-**Why:** A dry run shows what the script would do. It changes nothing.
-
-1. Type the command.
+**Why:** a dry run shows what the script would do and changes nothing.
 
 ```bash
 ./scripts/deploy.sh --dry-run
 ```
 
-2. Read the output. Each line has a time and a short commit ID.
-3. Make sure the output has no line with "ERROR".
+**Result:** the output says "up to date" or lists the planned steps, and has no "ERROR" line. A "refusing" line means Task 24 is not done.
 
-**Result:** The output says "up to date". Or it lists the steps that the script would do.
-
-> **NOTE**
-> A line with "refusing" means the repository has local changes or is not on `main`. Do Task 25 again.
-
-### Task 29. Examine the timer and the logs
-
-**Why:** You must know that the timer runs. You must know where to read the logs.
+### Task 28. Examine the timer and the logs
 
 1. Show the timer.
 
@@ -826,297 +544,166 @@ jq --version && curl --version | head -n 1
 systemctl list-timers homelab-deploy.timer
 ```
 
-2. Make sure the NEXT column shows a time in the next hour.
-3. Show the last 50 log lines.
+2. Show the last 50 log lines.
 
 ```bash
 journalctl -u homelab-deploy -n 50
 ```
 
-4. Make sure each line shows a time and a commit ID.
+**Result:** the NEXT column shows a time within the next hour, and each log line has a time and a commit ID.
 
-**Result:** The timer is active. The log has lines from the deploy script.
+### Task 29. Make the deploy hook secret
 
-### Task 30. Make the deploy hook secret
+**Why:** the deploy hook accepts only requests signed with a secret that the server and GitHub share.
 
-**Why:** The deploy hook accepts only a signed request. The server and GitHub must know the same secret.
-
-> **WARNING**
-> The secret works like a password. Do not send it to other people. Do not save it in a file other than `.env`.
-
-1. On the server, make a random secret.
+1. Make the secret.
 
 ```bash
 openssl rand -hex 32
 ```
 
-2. Copy the output.
-3. Open the `.env` file in a text editor.
-4. Find the line `DEPLOY_HOOK_SECRET=`. If it is not there, copy it from `.env.example`.
-5. Paste the secret after the equals sign. Save the file.
-6. On GitHub, open the repository. Click Settings.
-7. Click Secrets and variables. Click Actions.
-8. Click New repository secret.
-9. Set Name to `DEPLOY_HOOK_SECRET`.
-10. Paste the same secret in the Secret box.
-11. Click Add secret.
+2. In `.env`, set `DEPLOY_HOOK_SECRET=` to it (copy the line from `.env.example` if it is missing).
+3. In the repository, open Settings > Secrets and variables > Actions. Add a repository secret named `DEPLOY_HOOK_SECRET` with the same value.
 
-**Result:** `.env` and GitHub have the same value for `DEPLOY_HOOK_SECRET`.
+**Result:** `.env` and GitHub have the same 64-character `DEPLOY_HOOK_SECRET`. Keep it only in those two places. (The hook refuses a secret shorter than 32 characters.)
 
-> **NOTE**
-> The deploy hook does not start when the secret has fewer than 32 characters. The command above gives 64.
+### Task 30. Make the Tailscale federated identity
 
-### Task 31. Paste the access rules for push deploy
+**Why:** GitHub joins your tailnet for a few seconds with a short-lived OIDC token, so no Tailscale secret is stored in GitHub. The identity can only make `tag:ci` nodes, and the Task 8 policy lets `tag:ci` reach port 9000 only.
 
-**Why:** The new rules add the tag `tag:ci`. A temporary GitHub node with this tag can reach port 9000 on the server. It can reach no other port.
-
-**Before you start:** Do Task 9 first. Keep the family emails that you set there.
-
-1. On the server, show the policy file.
-
-```bash
-cat docs/remote-access/tailscale-policy.example.hujson
-```
-
-2. Copy all the text.
-3. In the admin console, open the Access controls page.
-4. Delete the old text. Paste the new text.
-5. Find the line that starts with `"group:family"`.
-6. Write the same family emails as in Task 9.
-7. Click Save.
-8. Read the test results on the page.
-9. Make sure all tests pass.
-
-**Result:** The page shows a green message that the policy is saved. All tests pass.
-
-> **CAUTION**
-> If a test fails, do not continue. A failed test can mean that `tag:ci` reaches more than port 9000.
-
-### Task 32. Make the Tailscale federated identity
-
-**Why:** GitHub uses this identity to join your tailnet for a few seconds. GitHub proves who it is with a short token (OIDC). You store no Tailscale secret in GitHub. The identity can only make nodes with the tag `tag:ci`.
-
-**Before you start:** Do Task 31. The tag `tag:ci` must exist.
-
-1. In the admin console, open Settings. Click Trust credentials.
-2. Add a new credential. Choose the type OpenID Connect.
-3. Set the issuer to GitHub.
-4. Set the subject to this exact text:
+1. In the admin console, open Settings > Trust credentials. Add a credential of type OpenID Connect, issuer GitHub.
+2. Set the subject to exactly:
 
 ```text
 repo:Gascon1/homelab:ref:refs/heads/main
 ```
 
-5. Find the Keys section. Find the scope Auth Keys (`auth_keys`). Set it to Write.
-6. Select no other scope. Do not select Devices Core.
-7. For the Auth Keys scope, add the tag `tag:ci`. Add no other tag.
-8. Save the credential.
-9. Copy the Client ID. Copy the Audience.
-10. On GitHub, open Settings > Secrets and variables > Actions.
-11. Click New repository secret.
-12. Set Name to `TS_OAUTH_CLIENT_ID`. Paste the Client ID. Click Add secret.
-13. Click New repository secret.
-14. Set Name to `TS_AUDIENCE`. Paste the Audience. Click Add secret.
+3. In Keys, set Auth Keys (`auth_keys`) to Write, with the tag `tag:ci` only. Select no other scope.
+4. Save. Copy the Client ID and the Audience.
+5. In GitHub Actions secrets (as in Task 29), add `TS_OAUTH_CLIENT_ID` (the Client ID) and `TS_AUDIENCE` (the Audience).
 
-**Result:** GitHub has the two secrets `TS_OAUTH_CLIENT_ID` and `TS_AUDIENCE`. The credential in Tailscale trusts only the `main` branch of `Gascon1/homelab`.
+**Result:** GitHub has `TS_OAUTH_CLIENT_ID` and `TS_AUDIENCE`, and the credential trusts only `main` of `Gascon1/homelab`, with one scope and one tag.
 
 > **CAUTION**
-> Do not use a subject with `*`. A wide subject lets other branches, pull requests or other repositories join your tailnet as `tag:ci`.
-
-> **CAUTION**
-> The scope Devices Core can delete and approve all devices on your tailnet. The GitHub action needs only Auth Keys with Write.
+> The subject is exact, with no `*`: a wildcard lets other branches, pull requests or repositories join as `tag:ci`. The single scope is Auth Keys Write: Devices Core could delete and approve every device on the tailnet.
 
 > **NOTE**
-> The names on the page can be different. Look for "workload identity federation" in the Tailscale documentation.
+> If the console names differ, search the Tailscale docs for "workload identity federation".
 
-### Task 33. Add the repository variable TS_HOST
+### Task 31. Add the repository variable TS_HOST
 
-**Why:** The workflow needs the address of your server. The address is not secret, so it is a variable.
+**Why:** the workflow needs the server address. It is not secret, so it is a variable.
 
-1. On GitHub, open Settings > Secrets and variables > Actions.
-2. Click the Variables tab.
-3. Click New repository variable.
-4. Set Name to `TS_HOST`.
-5. Set Value to `homelab.<YOUR-TAILNET>`. Use your real tailnet name.
-6. Click Add variable.
+1. In GitHub, open Settings > Secrets and variables > Actions > Variables. Add `TS_HOST` with the value `homelab.<YOUR-TAILNET>`.
 
-**Result:** The Variables tab shows `TS_HOST` with the address of your server.
+**Result:** the Variables tab shows `TS_HOST` with your real tailnet name.
 
-### Task 34. Start the deploy hook and install the path unit
+### Task 32. Start the deploy hook and install the path unit
 
-**Why:** The `deploy-hook` container receives the request. The path unit starts the deploy when the hook writes its trigger file.
+**Why:** the `deploy-hook` container receives the request. The path unit starts the deploy when the hook writes its trigger file.
 
-**Before you start:** Do Tasks 30 to 33. Make sure that `.env` has the secret from Task 30.
+Tasks 29 to 31 come first. The hook does not start without `DEPLOY_HOOK_SECRET`, and with the `push` profile on, every deploy would then fail and roll back.
 
-> **CAUTION**
-> Do not add the `push` profile before you set `DEPLOY_HOOK_SECRET`. Without the secret, `deploy-hook` does not start. Then each deploy fails and rolls back.
-
-1. Open `.env`. Find the line `COMPOSE_PROFILES=remote`.
-2. Change it to `COMPOSE_PROFILES=remote,push`. Save the file.
-3. In the `homelab` folder, start the containers.
+1. In `.env`, change `COMPOSE_PROFILES=remote` to `COMPOSE_PROFILES=remote,push`. Start the containers.
 
 ```bash
 docker compose up -d
 ```
 
-4. Make sure `deploy-hook` is healthy.
-
-```bash
-docker compose ps deploy-hook
-```
-
-5. Run the install script again.
+2. Run the installer again. It now also installs the path unit.
 
 ```bash
 ./deploy/install.sh
 ```
 
-6. Type your password when `sudo` asks for it.
-7. Make sure the path unit is active.
-
-```bash
-systemctl status homelab-deploy.path
-```
-
-**Result:** `deploy-hook` is healthy. The path unit shows "active (waiting)".
+**Result:** `docker compose ps deploy-hook` shows healthy, and `systemctl status homelab-deploy.path` shows "active (waiting)".
 
 > **NOTE**
-> If `docker logs deploy-hook` says "not writable", run `./setup.sh` again. It makes the folder for the trigger file and gives it to your user. Then run `docker compose up -d --force-recreate deploy-hook`.
+> If `docker logs deploy-hook` says "not writable", run `./setup.sh`, then `docker compose up -d --force-recreate deploy-hook`.
 
-### Task 35. Test with a small pull request
+### Task 33. Test with a small pull request
 
-**Why:** This test shows that the full path works, from GitHub to your server.
+**Why:** this proves the full path, from GitHub to your server.
 
-**Before you start:** Do Tasks 30 to 34.
-
-1. On GitHub, make a small pull request. Change one line in a document.
-2. Wait for the `CI` checks to turn green.
-3. Merge the pull request.
-4. Wait for the `Release` workflow to finish with a green mark.
-5. Wait one minute. The `notify` job runs after the `release` job.
-6. On GitHub, open the `notify` job of the run. Read its log.
-7. Make sure the log shows no error. The last step must show a green mark.
-8. On the server, read the log of the receiver.
+1. On GitHub, make a pull request that changes one line in a document. Merge it when `CI` is green.
+2. Wait for the `Release` workflow, then its `notify` job, to finish green.
+3. On the server, read the receiver log, then the deploy log.
 
 ```bash
 docker logs deploy-hook
 ```
 
-9. Make sure the last line shows the status 202.
-10. Read the log of the deploy service.
-
 ```bash
 journalctl -u homelab-deploy -n 50
 ```
 
-11. Make sure the log has a line with "DEPLOYED".
-12. Open Rack at `http://<SERVER-LAN-IP>:4000`.
-13. Make sure Rack loads with no error.
-
-**Result:** The log shows "DEPLOYED" and the new commit ID. `git log -1` on the server shows the same commit.
+**Result:** the last `deploy-hook` line has status 202, the deploy log has "DEPLOYED" with the new commit, `git log -1` shows the same commit, and Rack loads.
 
 > **NOTE**
-> The log line "gate pending" is normal. It means the `Release` workflow is not finished. The next doorbell or the hourly timer tries again.
+> "gate pending" is normal: the `Release` workflow was not finished yet, and the next doorbell or hourly run tries again. "push deploy not configured" in the `notify` log means a secret or `TS_HOST` is missing (Tasks 29 to 31); the hourly timer still deploys.
 
-> **NOTE**
-> If the `notify` log says "push deploy not configured", a secret or `TS_HOST` is not set. Do Tasks 30 to 33 again. The hourly timer deploys the change in the meantime.
+### Task 34. Pause and roll back
 
-### Task 36. Pause and roll back
+**Why:** you must be able to stop deploys and go back to a good version. The script already rolls back by itself when a new version does not start.
 
-**Why:** You must be able to stop automatic deploys. You must be able to go back to an old version.
-
-**To pause:**
-
-1. Stop the timer and the path unit.
+**Pause and resume:**
 
 ```bash
 sudo systemctl stop homelab-deploy.timer homelab-deploy.path
 ```
 
-2. To start them again, type this command.
-
 ```bash
 sudo systemctl start homelab-deploy.timer homelab-deploy.path
 ```
 
-**To roll back by hand:**
+**Roll back by hand:**
 
-1. Pause the timer and the path unit. Use the command above.
-2. Find the commit ID of the good version.
-
-```bash
-git log --oneline -n 10
-```
-
-3. Go back to that commit. Replace `<GOOD-SHA>` with the full commit ID.
+1. Pause (above). Find the full commit ID of the good version with `git log --oneline -n 10`.
+2. Go back to it and start its image. Replace `<GOOD-SHA>`.
 
 ```bash
 git reset --hard <GOOD-SHA>
 ```
 
-4. Set the image tag. Replace `<GOOD-SHA>` with the full commit ID.
-
 ```bash
 RACK_TAG=sha-<GOOD-SHA> docker compose up -d --wait
 ```
 
-5. Make sure Rack works.
-6. Start the timer and the path unit again only after a fix is on `main`.
+3. Resume only after a fix is on `main`: the units deploy `main` again as soon as they run.
 
-**Result:** The timer and the path unit are stopped. Rack runs the good version.
+**Result:** the units are stopped, and Rack runs the good version.
 
-> **WARNING**
-> After step 3, the repository is behind `origin/main`. If you start the timer or the path unit, it deploys `main` again. Fix `main` first.
+### Task 35. If the repository is private (optional)
 
-> **NOTE**
-> The script rolls back by itself when the new version does not start. It then ignores that commit until `main` changes.
-
-### Task 37. If the repository is private (optional)
-
-**Why:** Do this task only if you make the repository private. A private repository needs credentials for three things.
+**Why:** a private repository needs credentials for the release check, the code download and the image.
 
 **A. The release check**
 
-1. On GitHub, click your profile picture. Click Settings.
-2. Click Developer settings. Click Personal access tokens. Click Fine-grained tokens.
-3. Click Generate new token.
-4. Select only the `homelab` repository.
-5. Give read-only access to Checks, Contents and Metadata.
-6. Click Generate token. Copy the token.
-7. On the server, open `deploy/deploy.env` in a text editor.
-8. Add the line `GITHUB_TOKEN=` followed by the token.
-9. Save the file.
+1. In GitHub, open Settings > Developer settings > Personal access tokens > Fine-grained tokens. Generate a token for the `homelab` repository only, with read-only Checks, Contents and Metadata.
+2. In `deploy/deploy.env`, add `GITHUB_TOKEN=<token>`.
 
 **B. The code download**
 
-1. On the server, make an SSH key for deploys only.
+1. Make a deploy-only SSH key and show its public half.
 
 ```bash
 ssh-keygen -t ed25519 -f ~/.ssh/homelab-deploy -N ""
 ```
 
-2. Show the public key.
-
 ```bash
 cat ~/.ssh/homelab-deploy.pub
 ```
 
-3. On GitHub, open the repository. Click Settings, then Deploy keys, then Add deploy key.
-4. Paste the public key. Do not select "Allow write access".
-5. Click Add key.
-6. Tell Git to use the key for this repository.
+2. In the repository, open Settings > Deploy keys > Add deploy key. Paste the key, with "Allow write access" unselected.
+3. Point Git at the key and the SSH remote, then fetch once to accept the GitHub host key.
 
 ```bash
 git config core.sshCommand "ssh -i ~/.ssh/homelab-deploy -o IdentitiesOnly=yes"
 ```
 
-7. Change the remote to SSH.
-
 ```bash
 git remote set-url origin git@github.com:Gascon1/homelab.git
 ```
-
-8. Connect once by hand to accept the GitHub host key.
 
 ```bash
 git fetch origin main
@@ -1124,15 +711,9 @@ git fetch origin main
 
 **C. The image**
 
-1. Open `deploy/deploy.env` in a text editor.
-2. Set `RACK_SOURCE=build`.
-3. Save the file.
-4. Run the dry run from Task 28.
+1. In `deploy/deploy.env`, set `RACK_SOURCE=build`. The server then builds Rack itself (a few minutes per deploy).
 
-**Result:** The dry run shows no "404" and no "fetch failed" line. The server builds the Rack image on its own.
-
-> **NOTE**
-> A build on the server takes a few minutes. The token must have read-only access. Never use a token that can write.
+**Result:** the Task 27 dry run shows no "404" and no "fetch failed" line.
 
 ---
 
@@ -1140,62 +721,42 @@ git fetch origin main
 
 | Symptom | Action |
 | --- | --- |
-| The admin console does not show the machine `homelab`. | Read the logs with `docker compose logs tailscale`. Make sure the key is not expired and `TS_AUTHKEY` has no spaces. |
-| The log says the auth key is not valid. | Make a new key (Task 10). Write it in `.env`. Run `docker compose --profile remote up -d`. |
-| The browser shows a certificate error. | Make sure HTTPS Certificates is on (Task 8). Make sure `TS_TAILNET` is correct. Run `docker compose restart caddy`. |
-| The name `homelab.<YOUR-TAILNET>` does not resolve. | Make sure Tailscale is on in the phone app. Make sure MagicDNS is on (Task 8). |
-| The page does not load, and Tailscale is on. | Make sure the device is approved (Task 15). Run `docker compose --profile remote ps` to see if `caddy` runs. |
-| `caddy` does not start, or stops after a restart of `tailscale`. | Run `docker compose --profile remote up -d`. This starts `caddy` again. |
-| The machine is named `homelab-1`. | An old machine named `homelab` exists. Delete the old machine in the admin console. Or set `TS_HOSTNAME` to a new name and use that name. |
-| Rack links do not open. | Use the Rack address `https://homelab.<YOUR-TAILNET>:4000`. Do not use the LAN address. Only the admin can open this address. |
-| A family member cannot open Plex, Immich or Seerr. | Examine the email in `group:family` (Task 9). Make sure the device is approved. |
-| A page opens with no sign-in form. | Stop. Do Task 3 again. Do not use the page until it asks for a password. |
-| Radarr or Sonarr cannot reach qBittorrent. | Type the new password in Settings > Download Clients (Task 2). |
-| qBittorrent refuses all logins after wrong passwords. | Run `docker compose restart qbittorrent`. This clears the ban list. Then use the correct password. |
-| Rack shows no data for qBittorrent. | Make sure the `RACK_QBITTORRENT_*` values in `.env` are correct. Run `docker compose up -d rack`. |
-| `./scripts/check-exposure.sh` shows a warning. | Make sure `BIND_ADDR` has the LAN address. Run `docker compose up -d`. Run the script again. |
-| The Plex app cannot find the server over Tailscale. | Examine "Custom server access URLs" in Plex > Settings > Network (Task 19). |
-| Immich does not start after you changed `DB_PASSWORD`. | Write the old value back in `.env`. Run `docker compose up -d`. |
+| The admin console does not show `homelab`. | Read `docker compose logs tailscale`. Check that the key has not expired and `TS_AUTHKEY` has no spaces. |
+| The log says the auth key is not valid. | Make a new key (Task 9), write it in `.env`, and run `docker compose up -d`. |
+| The browser shows a certificate error. | Check HTTPS Certificates (Task 7) and `TS_TAILNET`. Run `docker compose restart caddy`. |
+| `homelab.<YOUR-TAILNET>` does not resolve. | Turn Tailscale on in the app. Check MagicDNS (Task 7). |
+| The page does not load, with Tailscale on. | Approve the device (Task 14). Check that `caddy` runs with `docker compose ps caddy`. |
+| `caddy` is not running. | Run `docker compose up -d`. |
+| The machine is named `homelab-1`. | Delete the old `homelab` machine in the admin console, or set a new `TS_HOSTNAME` and use that name. |
+| Rack links do not open. | Open Rack at `https://homelab.<YOUR-TAILNET>:4000`, not the LAN address. Only admins can. |
+| A family member cannot open Plex, Immich or Seerr. | Check their email in `group:family` (Task 8) and approve their device. |
+| A page opens with no sign-in form. | Stop using it. Lock the app again (Tasks 1 to 3). |
+| Radarr or Sonarr cannot reach qBittorrent. | Type the new password in Settings > Download Clients (Task 1). |
+| qBittorrent refuses all logins after wrong passwords. | Run `docker compose restart qbittorrent` to clear the ban list. |
+| Rack shows no qBittorrent data. | Check `RACK_QBITTORRENT_*` in `.env`. Run `docker compose up -d rack`. |
+| `check-exposure.sh` warns. | Check `BIND_ADDR` (Task 5). Run `docker compose up -d` and the script again. |
+| The Plex app cannot find the server over Tailscale. | Check "Custom server access URLs" (Task 18). |
+| Immich does not start after a `DB_PASSWORD` change. | Write the old value back in `.env`. Run `docker compose up -d`. |
 
 ## How to undo
 
-Use these steps to remove remote access. Your LAN access does not change.
+These steps remove remote access and push deploys. LAN access stays the same.
 
-1. Stop the containers.
-
-```bash
-docker compose --profile remote --profile push stop caddy tailscale deploy-hook
-```
-
-2. Delete the containers.
+1. Stop and delete the containers.
 
 ```bash
-docker compose --profile remote --profile push rm -f caddy tailscale deploy-hook
+docker compose --profile remote --profile push rm -sf caddy tailscale deploy-hook
 ```
 
-3. Open `.env`. Add the `#` again before `COMPOSE_PROFILES`.
-4. In `.env`, delete the value of `TS_AUTHKEY`.
-5. In Plex, open Settings > Network. Delete the tailnet address from "Custom server access URLs".
-6. In the admin console, open the Machines page. Delete the machine `homelab`.
-7. Open Settings > Keys. Revoke all keys that are still in the list.
-8. If you want, delete the Tailscale state folder. This folder holds the key of the node.
+2. In `.env`, comment out `COMPOSE_PROFILES` again and empty `TS_AUTHKEY`.
+3. In Plex, remove the tailnet address from "Custom server access URLs".
+4. In the admin console, delete the `homelab` machine and revoke every remaining key.
+5. Optional: delete the Tailscale state, which holds the node's private key. Check the path first: this deletes the folder for good.
 
 ```bash
 sudo rm -r appdata/tailscale
 ```
 
-> **WARNING**
-> The command in step 8 deletes a folder and all its files. You cannot undo it. Make sure you are in the `homelab` folder. Make sure the path is exactly `appdata/tailscale`.
+6. In the router, delete the TCP 32400 forward if you added it in Task 19.
 
-9. In your router, delete the port forward for TCP 32400 if you added it in Task 20.
-10. If you want the old LAN behavior, set `BIND_ADDR=0.0.0.0` in `.env`. Then type this command.
-
-```bash
-docker compose up -d
-```
-
-> **WARNING**
-> Step 10 publishes the web pages on all network interfaces. Do it only if you have a reason. Keep the passwords from Tasks 2 and 3.
-
-> **NOTE**
-> Step 8 uses the default `APPDATA=./appdata`. If you set another `APPDATA`, use that path.
+Keep `BIND_ADDR` on the LAN address and keep the app passwords: they protect the LAN too.
