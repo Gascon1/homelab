@@ -15,7 +15,6 @@ A Docker Compose stack for running a complete home media server with automated d
 | [Immich](docs/immich.md)            | 2283  | Photo & video management       |
 | [Rack](docs/rack.md)                | 4000  | Dashboard for all services     |
 | [Netdata](docs/netdata.md)          | 19999 | System monitoring              |
-| [File Browser](docs/filebrowser.md) | 8181  | Web-based file manager         |
 
 FlareSolverr (8191) is not published on the host; Prowlarr reaches it at `http://flaresolverr:8191` over the `homelab` network. Web UIs are published on `BIND_ADDR` (default all interfaces); Plex and the qBittorrent torrent ports always stay on all interfaces.
 
@@ -217,7 +216,7 @@ A systemd timer on the server can deploy each change merged to `main` once its G
 - Keep containers updated regularly
 - Review container capabilities (especially Netdata)
 - Set `BIND_ADDR` in `.env` to your LAN IP so web UIs are not published on every interface. Docker-published ports bypass ufw, so a firewall alone does not protect them.
-- Run `./scripts/check-exposure.sh` to list listening sockets and published ports; it exits non-zero if Rack, Netdata, FlareSolverr or File Browser are on all interfaces. `--external <public-ip>` adds an nmap scan (run it from outside your LAN).
+- Run `./scripts/check-exposure.sh` to list listening sockets and published ports; it exits non-zero if Rack, Netdata or FlareSolverr are on all interfaces. `--external <public-ip>` adds an nmap scan (run it from outside your LAN).
 - Immich only receives the DB variables it needs, not the whole `.env`, so the `RACK_*` keys stay out of its containers.
 - Netdata data now lives under `${APPDATA}/netdata`. With the default `APPDATA=./appdata` nothing changes; if you set a different `APPDATA`, move your old `./appdata/netdata` there.
 

@@ -1,4 +1,3 @@
-import { filebrowser } from './filebrowser.ts';
 import { flaresolverr } from './flaresolverr.ts';
 import { immich } from './immich.ts';
 import { netdata } from './netdata.ts';
@@ -15,7 +14,7 @@ export { request } from './http.ts';
 export type { App, DisplayLine, HttpPort, RawResponse } from './types.ts';
 
 /** Every app Rack knows. Order matters: the first match wins and the demo plays them in this order. */
-export const APPS: App[] = [plex, seerr, sonarr, radarr, prowlarr, qbittorrent, flaresolverr, immich, filebrowser, netdata];
+export const APPS: App[] = [plex, seerr, sonarr, radarr, prowlarr, qbittorrent, flaresolverr, immich, netdata];
 
 export const DEFAULT_GROUP_ORDER = ['Media', 'Downloads', 'Photos', 'System'];
 

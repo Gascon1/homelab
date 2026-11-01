@@ -77,11 +77,6 @@
 	reverse_proxy netdata:19999
 }
 
-{$CADDY_DOMAIN}:8181 {
-	import security_headers
-	reverse_proxy filebrowser:80
-}
-
 # Push-deploy doorbell for GitHub Actions (tag:ci may reach only this port; see
 # docs/deploy.md). The hook checks the HMAC; family and admins do not need this port.
 {$CADDY_DOMAIN}:9000 {

@@ -17,7 +17,6 @@ REPO_DIR="$(dirname "$SCRIPT_DIR")"
 declare -A RISKY_PORTS=(
     [4000]="rack"          # dashboard; talks to the Docker socket
     [19999]="netdata"      # host metrics, runs with SYS_ADMIN/SYS_PTRACE
-    [8181]="filebrowser"   # browses the whole data tree
     [8191]="flaresolverr"  # unauthenticated headless-browser proxy (not published at all today)
 )
 

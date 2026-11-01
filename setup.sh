@@ -87,10 +87,6 @@ APPDATA_DIRS=(
     "${APPDATA}/netdata/lib"
     "${APPDATA}/netdata/cache"
 
-    # File management
-    "${APPDATA}/filebrowser/config"
-    "${APPDATA}/filebrowser/database"
-
     # Remote access (only used with the 'remote' compose profile)
     "${APPDATA}/tailscale"
     "${APPDATA}/caddy/data"
