@@ -397,7 +397,20 @@ docker compose --profile remote ps
 docker compose logs caddy
 ```
 
-3. Find the line that says Caddy got a certificate for `homelab.<YOUR-TAILNET>`. Make sure the log shows no error.
+3. Make sure each site shows "server running". Make sure the log shows no line with `"level":"error"`.
+
+> **NOTE**
+> Caddy gets the certificate at the first visit, not at the start. Thus, the log shows no certificate line yet. These warnings are normal: "Caddyfile input is not formatted", "failed to sufficiently increase receive buffer size", "HTTP/2 skipped" and "admin endpoint disabled".
+
+3a. On a phone or laptop with Tailscale on, open `https://homelab.<YOUR-TAILNET>`. The first load can take a few seconds.
+3b. Make sure the browser shows the Home media page with no certificate warning.
+3c. Read the recent logs of Caddy again.
+
+```bash
+docker compose logs caddy --since 5m
+```
+
+3d. Make sure no error line mentions `tailscale` or `certificate`.
 4. In the admin console, open the Machines page.
 5. Make sure the machine name is exactly `homelab`. The name must not end in `-1`.
 6. Restart `tailscale`.
@@ -413,7 +426,7 @@ docker compose restart tailscale
 docker compose --profile remote up -d --force-recreate caddy
 ```
 
-**Result:** Both containers are healthy. Caddy has its certificate. The machine name is `homelab`.
+**Result:** Both containers are healthy. The homepage opens with no certificate warning. The machine name is `homelab`.
 
 ### Task 14. Remove the auth key
 
