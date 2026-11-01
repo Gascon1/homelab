@@ -130,6 +130,21 @@ See individual [service documentation](docs/) for detailed setup instructions.
 
 For advanced configuration, check [TRaSH Guides](https://trash-guides.info/) - comprehensive guides for Radarr, Sonarr, Prowlarr, qBittorrent, and Plex with optimal settings tested by thousands of users.
 
+## Adding a new service
+
+`compose.yml` is the source of truth for ports and appdata paths. `scripts/check-exposure.sh` reads it, so it needs no edit unless the service must never be public. The Caddyfile and the tailnet policy are deliberate allowlists, so they are edited by hand. Touch these files:
+
+1. `compose.yml`: the service, its port (`'${BIND_ADDR:-0.0.0.0}:PORT:PORT'`), `logging: *logging`, and the `rack.enable=true` label if Rack should list it.
+2. `setup.sh`: add its appdata directory to `APPDATA_DIRS`.
+3. `.env.example`: any new variables (and the README variable list).
+4. `caddy/Caddyfile`: a site block, if it should be reachable over the tailnet.
+5. `docs/remote-access/tailscale-policy.example.hujson`: only if the family group should reach it (and add a test).
+6. `scripts/check-exposure.sh`: add the port to `RISKY_PORTS` if it must never be on all interfaces.
+7. `README.md` services table and `docs/<service>.md`.
+8. `rack/`: only if Rack needs a custom integration (the catalog entry).
+
+Check with `docker compose config -q` and `scripts/check-exposure.sh`.
+
 ## Common Commands
 
 ```bash
