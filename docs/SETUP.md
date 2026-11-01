@@ -18,7 +18,7 @@ You need accounts for GitHub (2FA on), Plex, NordVPN, your indexers, and for ste
 1. Install 64-bit Ubuntu or Debian on `amd64` (the Rack image is built for `linux/amd64` only).
 2. Install the tools: `sudo apt install -y git curl jq openssl`.
 3. Install Docker Engine with the Compose plugin from <https://docs.docker.com/engine/install/>. Add your user to the `docker` group (`sudo usermod -aG docker "$USER"`), then sign out and in.
-4. Set the router as in [MANUAL-STEPS Task 5](remote-access/MANUAL-STEPS.md#task-5-set-the-router), including the DHCP reservation. The reserved address is `<SERVER-LAN-IP>`.
+4. Set the router as in [MANUAL-STEPS Task 4](remote-access/MANUAL-STEPS.md#task-4-close-the-router), including the DHCP reservation. The reserved address is `<SERVER-LAN-IP>`.
 
 **Done when:** `docker compose version` runs without `sudo`, `id` lists `docker`, and the router shows UPnP off, no port forwards, and a reservation for the server.
 
@@ -27,7 +27,7 @@ You need accounts for GitHub (2FA on), Plex, NordVPN, your indexers, and for ste
 1. Mount the media drive through `/etc/fstab` by UUID (`sudo blkid`). Add `nofail` so a missing drive does not block boot. Its mount point is `DATA_DIR` (default `/srv/data`).
 2. Clone on `main`: `git clone https://github.com/Gascon1/homelab.git ~/homelab`. Keep this checkout a **clean main**: the deploy script refuses any other branch or any local change. Your own files (`.env`, `appdata/`, `deploy/deploy.env`) are gitignored and do not count.
 
-On a fork, every hard-coded owner shows with `grep -rni gascon1 --exclude-dir=.git .`. Change each one, and use your repo in the OIDC subject of MANUAL-STEPS Task 32.
+On a fork, every hard-coded owner shows with `grep -rni gascon1 --exclude-dir=.git .`. Change each one, and use your repo in the OIDC subject of MANUAL-STEPS Task 30.
 
 **Done when:** `df -h /srv/data` shows the drive after `sudo mount -a`, and `git status` says `On branch main` and `working tree clean`.
 
@@ -50,7 +50,7 @@ qBittorrent runs inside gluetun, and gluetun needs the NordVPN WireGuard key in 
 
 ## 5. First start
 
-1. `docker compose up -d`. This pulls the Rack image from GHCR. If the pull fails (a fork, or a private package), use `docker compose up -d --build` to build it here.
+1. `docker compose pull && docker compose up -d`. The pull fetches the Rack image that CI built. If it cannot (a fork, or a private package), run `docker compose up -d --build` to build Rack here.
 2. Run the VPN leak and kill-switch tests in [qbittorrent.md](qbittorrent.md#leak-and-kill-switch-tests).
 3. Run `./scripts/check-exposure.sh`.
 
@@ -62,12 +62,12 @@ Configure the apps in this order: each one needs a value (login or API key) from
 
 | # | App | Configure with | Lock with |
 | --- | --- | --- | --- |
-| 1 | qBittorrent (8080) | [qbittorrent.md](qbittorrent.md): paths, connection, categories | [MANUAL-STEPS Task 2](remote-access/MANUAL-STEPS.md#task-2-change-the-qbittorrent-password-and-settings) (steps 1 to 10) |
-| 2 | Radarr (7878), Sonarr (8989) | [radarr.md](radarr.md), [sonarr.md](sonarr.md): root folder, download client | [MANUAL-STEPS Task 3](remote-access/MANUAL-STEPS.md#task-3-set-authentication-in-radarr-sonarr-and-prowlarr) |
-| 3 | Prowlarr (9696) | [prowlarr.md](prowlarr.md): FlareSolverr, indexers, apps | MANUAL-STEPS Task 3 |
-| 4 | Plex (32400) | [plex.md](plex.md): claim, libraries | Keep "allowed without auth" empty ([Task 19](remote-access/MANUAL-STEPS.md#task-19-tell-plex-the-tailnet-address) step 6) |
-| 5 | Seerr (5055) | [seerr.md](seerr.md): Plex, Radarr, Sonarr | [MANUAL-STEPS Task 4](remote-access/MANUAL-STEPS.md#task-4-check-immich-and-seerr) steps 8 to 10 |
-| 6 | Immich (2283) | [immich.md](immich.md): admin, phone backup | MANUAL-STEPS Task 4 steps 6 and 7 |
+| 1 | qBittorrent (8080) | [qbittorrent.md](qbittorrent.md): paths, connection, categories | [MANUAL-STEPS Task 1](remote-access/MANUAL-STEPS.md#task-1-lock-qbittorrent) |
+| 2 | Radarr (7878), Sonarr (8989) | [radarr.md](radarr.md), [sonarr.md](sonarr.md): root folder, download client | [MANUAL-STEPS Task 2](remote-access/MANUAL-STEPS.md#task-2-lock-radarr-sonarr-and-prowlarr) |
+| 3 | Prowlarr (9696) | [prowlarr.md](prowlarr.md): FlareSolverr, indexers, apps | MANUAL-STEPS Task 2 |
+| 4 | Plex (32400) | [plex.md](plex.md): claim, libraries | Keep "allowed without auth" empty ([Task 18](remote-access/MANUAL-STEPS.md#task-18-tell-plex-the-tailnet-address) step 3) |
+| 5 | Seerr (5055) | [seerr.md](seerr.md): Plex, Radarr, Sonarr | [MANUAL-STEPS Task 3](remote-access/MANUAL-STEPS.md#task-3-lock-immich-and-seerr) step 3 |
+| 6 | Immich (2283) | [immich.md](immich.md): admin, phone backup | MANUAL-STEPS Task 3 steps 1 and 2 |
 | 7 | Rack (4000) | [rack.md](rack.md): Immich API key into `.env`, then `docker compose up -d rack` | Admin-only by design: LAN and ACL, no login |
 | 8 | Netdata (19999) | Nothing to set | Admin-only by design, same as Rack |
 
@@ -83,15 +83,15 @@ Request a small, free movie in Seerr.
 
 ## 8. Remote access (optional)
 
-Do [MANUAL-STEPS](remote-access/MANUAL-STEPS.md) Tasks 7 to 21. Tasks 1 to 6 are already done: Task 1 is for a server that ran File Browser, and steps 1, 3, 5 and 6 here covered the rest. In Task 11, uncomment `COMPOSE_PROFILES=remote` in `.env`: the deploys in step 9 read only that line.
+Do [MANUAL-STEPS](remote-access/MANUAL-STEPS.md) Tasks 6 to 20. Tasks 1 to 5 are already done: steps 1, 3, 5 and 6 here covered them. In Task 10, uncomment `COMPOSE_PROFILES=remote` in `.env`: the deploys in step 9 read only that line.
 
-**Done when:** every check in Task 18 passes. It is the security test of the whole setup.
+**Done when:** every check in Task 17 passes. It is the security test of the whole setup.
 
 ## 9. Automatic deploys (optional)
 
-Read [deploy.md](deploy.md), then do [MANUAL-STEPS](remote-access/MANUAL-STEPS.md) Part D. Tasks 23 to 29 give the hourly timer and need no Tailscale. Tasks 30 to 35 add the push doorbell and need step 8. Task 37 applies only to a private repository.
+Read [deploy.md](deploy.md), then do [MANUAL-STEPS](remote-access/MANUAL-STEPS.md) Part D. Tasks 22 to 28 give the hourly timer and need no Tailscale. Tasks 29 to 33 add the push doorbell and need step 8. Task 35 applies only to a private repository.
 
-**Done when:** a small merged pull request shows `DEPLOYED` with its commit in `journalctl -u homelab-deploy -n 50` (Task 35), and you have paused and resumed the units once (Task 36).
+**Done when:** a small merged pull request shows `DEPLOYED` with its commit in `journalctl -u homelab-deploy -n 50` (Task 33), and you have paused and resumed the units once (Task 34).
 
 ## 10. Back up the state
 
@@ -99,4 +99,4 @@ Copy everything marked **Backup** in [SETUP-STATE.md](SETUP-STATE.md) to another
 
 **Done when:** the backup holds `.env`, `appdata/`, the Immich database and `${UPLOAD_LOCATION}`, and a test restore of one file works.
 
-After setup: update the apps each week ([Task 22](remote-access/MANUAL-STEPS.md#task-22-update-the-containers-each-week)), and add services as in the README's [Adding a new service](../README.md#adding-a-new-service).
+After setup: update the apps each week ([Task 21](remote-access/MANUAL-STEPS.md#task-21-update-the-containers-each-week)), and add services as in the README's [Adding a new service](../README.md#adding-a-new-service).

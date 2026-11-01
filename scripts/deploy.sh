@@ -243,7 +243,7 @@ main() {
     prev="$head"
     local new_tag="sha-${target}"
     # Pull every image only when a compose file changed (new tags, new services).
-    # Otherwise only rack: the :latest apps update when you choose (MANUAL-STEPS Task 22).
+    # Otherwise only rack: the :latest apps update when you choose (MANUAL-STEPS Task 21).
     local pull_all="$PULL_ALL"
     if ! git diff --quiet "$prev" "$target" -- 'compose*.yml' 'compose*.yaml' 'docker-compose*.yml' 'docker-compose*.yaml'; then
         pull_all=1
