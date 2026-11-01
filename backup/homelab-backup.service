@@ -1,0 +1,45 @@
+# Template: backup/install.sh replaces the @...@ placeholders and installs this
+# file to /etc/systemd/system/. Do not copy it by hand.
+[Unit]
+Description=Back up Immich photos to the backup Pi (see docs/backup.md)
+Documentation=file://@REPO_DIR@/docs/backup.md
+Wants=network-online.target
+After=network-online.target tailscaled.service
+# Never back up an empty mountpoint as if every photo had been deleted
+RequiresMountsFor=@BACKUP_ROOT@
+
+[Service]
+Type=oneshot
+# Installed copy: the repo under /home is not readable by the throwaway user
+ExecStart=@SCRIPT@ run
+# The first run uploads the whole library and can take days
+TimeoutStartSec=infinity
+SyslogIdentifier=homelab-backup
+Nice=10
+IOSchedulingClass=idle
+
+# A throwaway user that can read the photos (world-readable) but write nothing outside
+# its own cache and state folders. Config and password arrive as credentials.
+DynamicUser=yes
+LoadCredential=env:/etc/homelab-backup.env
+LoadCredential=password:/etc/homelab-backup.password
+CacheDirectory=homelab-backup
+StateDirectory=homelab-backup
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6

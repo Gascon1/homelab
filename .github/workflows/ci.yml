@@ -35,7 +35,7 @@ jobs:
         with:
           persist-credentials: false
       - name: shellcheck
-        run: shellcheck setup.sh scripts/*.sh deploy/*.sh
+        run: shellcheck setup.sh scripts/*.sh deploy/*.sh backup/*.sh
       - name: Deploy script tests (stubbed git origin, docker and curl)
         run: ./scripts/test-deploy.sh
 

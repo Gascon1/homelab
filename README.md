@@ -191,6 +191,8 @@ Critical data to backup:
 | Photos/Videos   | `${UPLOAD_LOCATION}`  | Critical                      |
 | Media library   | `${DATA_DIR}/media/`  | Medium (can be re-downloaded) |
 
+Photos (with Immich's database dumps) are backed up nightly to an off-site Raspberry Pi with restic; setup, restore and pruning are in [docs/backup.md](docs/backup.md).
+
 ## Remote Access
 
 Remote access goes through [Tailscale](https://tailscale.com) (a private WireGuard network), not open router ports. Two opt-in containers do this: `tailscale` joins your tailnet and `caddy` serves every app over HTTPS at `https://<TS_HOSTNAME>.<TS_TAILNET>:<usual port>` (the plain `https://<TS_HOSTNAME>.<TS_TAILNET>` is a static family homepage from `caddy/family/`; Rack is admin only on `:4000`). FlareSolverr is never exposed.

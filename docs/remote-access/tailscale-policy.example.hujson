@@ -10,6 +10,8 @@
 		"tag:homelab": ["autogroup:admin"],
 		// GitHub Actions runner that joins briefly to ring the push-deploy doorbell
 		"tag:ci": ["autogroup:admin"],
+		// Backup Pi at another house (docs/backup.md). It receives, it never initiates.
+		"tag:backup": ["autogroup:admin"],
 	},
 
 	"groups": {
@@ -28,6 +30,10 @@
 		// GitHub Actions (tag:ci, ephemeral): the deploy-hook port 9000 and nothing else
 		{"src": ["tag:ci"], "dst": ["tag:homelab"], "ip": ["tcp:9000"]},
 
+		// You (and the server, an admin-owned device): restic's rest-server on the backup Pi, and SSH to it.
+		// No grant has tag:backup as src, so the Pi cannot reach anything.
+		{"src": ["autogroup:admin"], "dst": ["tag:backup"], "ip": ["tcp:8000", "tcp:22"]},
+
 		// Everyone's own devices can still talk to each other
 		{"src": ["autogroup:member"], "dst": ["autogroup:self"], "ip": ["*"]},
 	],
@@ -45,6 +51,10 @@
 			"src": "tag:ci",
 			"accept": ["tag:homelab:9000"],
 			"deny": ["tag:homelab:4000", "tag:homelab:443", "tag:homelab:8080", "tag:homelab:19999", "tag:homelab:22"],
+		},
+		{
+			"src": "tag:backup",
+			"deny": ["tag:homelab:443", "tag:homelab:2283", "tag:homelab:4000", "tag:homelab:22", "tag:ci:22"],
 		},
 	],
 }

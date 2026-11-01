@@ -1,0 +1,14 @@
+# Copy to /etc/default/restic-rest-server on the backup Pi (replaces the Debian default).
+# Read by the restic-rest-server.service that the Debian package ships.
+
+# The Pi's Tailscale IP (tailscale ip -4), so the port is never open on the LAN
+# of the house it lives in. The drop-in retries until Tailscale has the address.
+LISTEN = 100.X.Y.Z:8000
+
+# The backup drive's mountpoint
+BACKUP_DIR = /srv/backup
+
+# --append-only: clients can add snapshots but never delete or rewrite data, so a
+#   compromised homelab server cannot wipe its own backups.
+# --private-repos: each htpasswd user only reaches /<user>/.
+ARGS = "--htpasswd-file /etc/restic-rest-server/users.htpasswd --append-only --private-repos"
