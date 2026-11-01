@@ -61,15 +61,25 @@ class Handler(BaseHTTPRequestHandler):
     sys_version = ""
     timeout = READ_TIMEOUT
 
+    def handle(self):
+        # Nothing escapes to socketserver (which would print a traceback): a client that
+        # hangs up, times out or sends garbage costs one log line, never the thread pool.
+        try:
+            super().handle()
+        except Exception as e:  # noqa: BLE001
+            self.close_connection = True
+            self.log_message("request failed: %s", type(e).__name__)
+
     def reply(self, code, note=""):
+        # Log first: the line must exist even if the client hangs up before the reply
+        if self.path != "/healthz":  # the healthcheck would bury the real requests
+            self.log_message("%s %s -> %d %s", self.command, self.path, code, note)
         self.send_response(code)
         self.send_header("Content-Type", "text/plain")
         self.send_header("Content-Length", str(len(note) + 1))
         self.send_header("Connection", "close")
         self.end_headers()
         self.wfile.write((note + "\n").encode())
-        if self.path != "/healthz":  # the healthcheck would bury the real requests
-            self.log_message("%s %s -> %d %s", self.command, self.path, code, note)
 
     def do_GET(self):
         if self.command == "GET" and self.path == "/healthz":

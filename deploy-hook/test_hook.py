@@ -23,6 +23,20 @@ SHA = "a" * 40
 SHA2 = "b" * 40
 
 
+def raw_request(port, data):
+    """Send raw bytes (no http.client validation); return the full response bytes."""
+    with socket.create_connection(("127.0.0.1", port), timeout=5) as s:
+        s.sendall(data)
+        chunks = []
+        while chunk := s.recv(4096):
+            chunks.append(chunk)
+    return b"".join(chunks)
+
+
+def status_of(resp):
+    return resp.split(b" ", 2)[1] if resp else b""
+
+
 def sign(body, secret=SECRET):
     return "sha256=" + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
 
@@ -178,10 +192,8 @@ class HookTest(unittest.TestCase):
 
     def test_log_escapes_control_chars_and_skips_healthz(self):
         with mock.patch("sys.stderr", new_callable=io.StringIO) as err:
-            s = socket.create_connection(("127.0.0.1", self.srv.server_port), timeout=5)
-            s.sendall(b"GET /x\x1b[31m\x07 HTTP/1.1\r\nHost: x\r\n\r\n")
-            self.assertEqual(s.recv(100).split(b" ")[1], b"404")
-            s.close()
+            resp = raw_request(self.srv.server_port, b"GET /x\x1b[31m\x07 HTTP/1.1\r\nHost: x\r\n\r\n")
+            self.assertEqual(status_of(resp), b"404")
             self.assertEqual(self.request(method="GET", path="/healthz"), 200)
         log = err.getvalue()
         self.assertNotIn("\x1b", log)
