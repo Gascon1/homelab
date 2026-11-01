@@ -1,108 +1,55 @@
-import { findCatalogEntry } from './catalog.ts';
-import { buildDisplay } from './display.ts';
-import { formatBytes, formatCount, formatRate, plural } from './format.ts';
-import { HISTORY_LENGTH, SLOW_MS } from './health.ts';
-import { compareGroups } from './resolve.ts';
-import type { Host, Service, State, StateSource, Stat, Status, Widget } from './types.ts';
-import type { DisplayLine } from './widgets/types.ts';
+import { APPS, type App, type HttpPort } from './apps/index.ts';
+import type { RackConfig } from './config.ts';
+import type { ContainerInfo } from './docker.ts';
+import { Engine, type ConfigSource } from './engine.ts';
+import { HISTORY_LENGTH, HealthTracker, SLOW_MS, type CheckResult } from './health.ts';
+import type { Host, Status } from './types.ts';
+
+// The demo is a set of fake inputs for the real Engine: Docker containers, upstream replies, health
+// probes and host readings. Grouping, ordering, icons, labels and sentences all come from the engine
+// and the apps, so the demo cannot drift from a real install. Each app's replies live in its own module.
 
 const CHECK_SPACING_MS = 20_000;
 const DAY_MS = 86_400_000;
 const GB = 1024 ** 3;
 
-interface DemoApp {
-  id: string;
-  image: string;
-  port: number;
-  baseLatency: number;
+interface DemoApp extends App {
+  demo: NonNullable<App['demo']>;
 }
 
-const APPS: DemoApp[] = [
-  { id: 'plex', image: 'lscr.io/linuxserver/plex:latest', port: 32400, baseLatency: 38 },
-  { id: 'seerr', image: 'ghcr.io/seerr-team/seerr:latest', port: 5055, baseLatency: 64 },
-  { id: 'sonarr', image: 'lscr.io/linuxserver/sonarr:latest', port: 8989, baseLatency: 42 },
-  { id: 'radarr', image: 'lscr.io/linuxserver/radarr:latest', port: 7878, baseLatency: 36 },
-  { id: 'prowlarr', image: 'lscr.io/linuxserver/prowlarr:latest', port: 9696, baseLatency: 29 },
-  { id: 'qbittorrent', image: 'lscr.io/linuxserver/qbittorrent:latest', port: 8080, baseLatency: 21 },
-  { id: 'flaresolverr', image: 'ghcr.io/flaresolverr/flaresolverr:latest', port: 8191, baseLatency: 17 },
-  { id: 'immich-server', image: 'ghcr.io/immich-app/immich-server:release', port: 2283, baseLatency: 55 },
-  { id: 'netdata', image: 'netdata/netdata:stable', port: 19999, baseLatency: 48 },
-];
+const DEMO_APPS = APPS.filter((app): app is DemoApp => app.demo !== undefined);
+
+/** The compose service id the demo gives each app. */
+const serviceId = (app: DemoApp): string => app.match[0]!;
+
+const containerName = (app: DemoApp): string => serviceId(app).replace('-', '_');
 
 const wave = (seconds: number, period: number, phase = 0): number => Math.sin((seconds / period) * 2 * Math.PI + phase);
 
-/** Health of one app at one moment: Sonarr is sometimes slow, FlareSolverr is down for a stretch. */
-function health(app: DemoApp, atMs: number): { status: Status; latency: number | null } {
+/** Health of one app at one moment. */
+function healthAt(app: DemoApp, atMs: number): { status: Status; latency: number | null } {
   const seconds = atMs / 1000;
-  if (app.id === 'flaresolverr' && seconds % 300 >= 120 && seconds % 300 < 200) return { status: 'down', latency: null };
-  const jitter = Math.round(app.baseLatency + 0.25 * app.baseLatency * wave(seconds, 37, app.port));
-  if (app.id === 'sonarr' && seconds % 100 >= 30 && seconds % 100 < 50) return { status: 'slow', latency: SLOW_MS + 400 + jitter };
+  const outage = app.demo.outage?.(seconds) ?? null;
+  if (outage === 'down') return { status: 'down', latency: null };
+  const base = app.demo.baseLatencyMs;
+  const jitter = Math.round(base + 0.25 * base * wave(seconds, 37, app.port ?? 0));
+  if (outage === 'slow') return { status: 'slow', latency: SLOW_MS + 400 + jitter };
   return { status: 'up', latency: jitter };
 }
 
-function stats(...items: [string, string, Stat['tone']?][]): Stat[] {
-  return items.map(([label, value, tone]) => ({ label, value, tone: tone ?? 'normal' }));
-}
-
-function widgetFor(app: DemoApp, atMs: number, down: boolean): { widget: Widget; lines: DisplayLine[] } | null {
-  const seconds = atMs / 1000;
-  const entry = findCatalogEntry(app.id, app.image);
-  const type = entry?.widget;
-  if (!type) return null;
-  const ok = (s: Stat[], lines: DisplayLine[] = [], meter: Widget['meter'] = null) => ({
-    widget: { type, ok: true, error: null, stats: s, meter },
-    lines,
-  });
-  if (down) {
-    const name = entry!.name;
-    return { widget: { type, ok: false, error: `Could not read details from ${name}`, stats: [], meter: null }, lines: [] };
-  }
-
-  switch (type) {
-    case 'plex': {
-      const streams = [0, 0, 1, 2, 2, 1, 0, 0][Math.floor((seconds % 240) / 30)]!;
-      return ok(
-        stats([streams === 1 ? 'stream' : 'streams', String(streams), streams ? 'good' : 'normal'], [streams === 2 ? 'transcode' : 'transcodes', streams === 2 ? '1' : '0']),
-        streams ? [{ text: `Plex is playing to ${plural(streams, 'screen')}`, kind: 'activity' }] : [],
-      );
-    }
-    case 'qbittorrent': {
-      const idle = seconds % 300 >= 240;
-      const down = idle ? 0 : Math.max(0.4e6, 9e6 + 6e6 * wave(seconds, 23) + 3e6 * wave(seconds, 7));
-      const up = 0.6e6 + 0.4e6 * wave(seconds, 31);
-      return ok(
-        stats(['down', formatRate(down), down ? 'good' : 'normal'], ['up', formatRate(up)], ['active', idle ? '0' : '3']),
-        down ? [{ text: `qBittorrent is pulling ${formatRate(down)}`, kind: 'activity' }] : [],
-        { label: 'download speed', value: Math.min(1, down / 20e6) },
-      );
-    }
-    case 'sonarr':
-      return ok(stats(['in queue', String(3 + Math.round(1.5 * wave(seconds, 60)))], ['airing today', '4'], ['missing', '12']));
-    case 'radarr':
-      return ok(stats(['in queue', '1'], ['missing', '7']));
-    case 'prowlarr':
-      return ok(stats(['indexers', '14'], ['failing', '0', 'good']));
-    case 'seerr': {
-      const pending = Math.floor((seconds % 360) / 120) + 1;
-      return ok(
-        stats(['waiting', String(pending), 'warn'], ['processing', '1'], ['available', '128', 'good']),
-        [{ text: `${pending} ${pending === 1 ? 'request is' : 'requests are'} waiting in Seerr`, kind: 'activity' }],
-      );
-    }
-    case 'immich':
-      return ok(stats(['photos', formatCount(18_204)], ['videos', formatCount(1_320)], ['stored', formatBytes(412.6 * GB)]));
-    case 'netdata': {
-      const warning = seconds % 400 >= 250 && seconds % 400 < 290 ? 1 : 0;
-      return ok(
-        stats(['critical', '0', 'good'], ['warnings', String(warning), warning ? 'warn' : 'good']),
-        warning ? [{ text: 'Netdata has 1 warning', kind: 'problem' }] : [],
-      );
-    }
-    case 'flaresolverr':
-      return ok(stats(['ready', 'v3.3.21', 'good']));
-    default:
-      return null;
-  }
+function containerFor(app: DemoApp, anchor: number): ContainerInfo {
+  const port = app.port ?? 0;
+  return {
+    id: `demo-${serviceId(app)}`,
+    name: containerName(app),
+    image: app.demo.image,
+    state: 'running',
+    health: app.demo.containerHealth ?? null,
+    startedAt: new Date(anchor).toISOString(),
+    labels: { 'rack.enable': 'true', 'com.docker.compose.service': serviceId(app) },
+    ports: [{ PublicPort: port, PrivatePort: port, Type: 'tcp' }],
+    composeService: serviceId(app),
+  };
 }
 
 function hostAt(atMs: number, startMs: number): Host {
@@ -120,77 +67,82 @@ function hostAt(atMs: number, startMs: number): Host {
   };
 }
 
-export function demoState(atMs: number, startMs: number): State {
-  const anchor = startMs - 2 * DAY_MS;
-  const services: Service[] = [];
-  const lines = new Map<string, DisplayLine[]>();
-
-  for (const app of APPS) {
-    const entry = findCatalogEntry(app.id, app.image)!;
-    const samples = Array.from({ length: HISTORY_LENGTH }, (_, k) => {
-      const at = atMs - (HISTORY_LENGTH - 1 - k) * CHECK_SPACING_MS;
-      return { at, ...health(app, at) };
-    });
-    const now = samples[samples.length - 1]!;
-    let streakStart = samples.length - 1;
-    while (streakStart > 0 && samples[streakStart - 1]!.status === now.status) streakStart--;
-    const widget = widgetFor(app, atMs, now.status === 'down');
-    lines.set(app.id, widget?.lines ?? []);
-
-    services.push({
-      id: app.id,
-      name: entry.name,
-      description: null,
-      group: entry.group,
-      icon: `/api/icon/${entry.icon}`,
-      url: null,
-      port: app.port,
-      path: entry.path ?? null,
-      status: now.status,
-      since: new Date(streakStart === 0 ? anchor : samples[streakStart]!.at).toISOString(),
-      latencyMs: now.latency,
-      history: samples.map((s) => s.latency),
-      container: {
-        name: app.id.replace('-', '_'),
-        image: app.image,
-        state: 'running',
-        health: app.id === 'seerr' ? 'healthy' : null,
-        startedAt: new Date(anchor).toISOString(),
-      },
-      widget: widget?.widget ?? null,
-    });
-  }
-
-  const byGroup = new Map<string, Service[]>();
-  for (const service of services) byGroup.set(service.group, [...(byGroup.get(service.group) ?? []), service]);
-  const groups = [...byGroup.keys()].sort(compareGroups([])).map((name) => ({ name, services: byGroup.get(name)! }));
-
-  return {
-    title: 'Homelab',
-    generatedAt: new Date(atMs).toISOString(),
-    display: buildDisplay(
-      groups.flatMap((g) => g.services).map((s) => ({ name: s.name, status: s.status, lines: lines.get(s.id) ?? [] })),
-    ),
-    groups,
+/** What a user's rack.yml would say: the bookmarks, and the order the demo apps are listed in. */
+function demoConfig(): ConfigSource {
+  const config: RackConfig = {
+    title: null,
+    groups: [],
+    services: new Map(DEMO_APPS.map((app, order) => [serviceId(app), { order }])),
     bookmarks: [
       { name: 'Router', url: 'http://10.0.0.1', group: 'Network' },
       { name: 'Pi-hole', url: 'http://10.0.0.2/admin', group: 'Network' },
     ],
-    host: hostAt(atMs, startMs),
-    warnings: [],
+    disks: null,
+  };
+  return { config, warnings: [], refresh: () => Promise.resolve(false) };
+}
+
+export interface DemoClock {
+  now(): number;
+  /** When the pretend server came up; the host uptime counts from here. */
+  startedAt: number;
+}
+
+/** A health history as if the demo had been running: one probe every 20 s, ending now. */
+function seedHealth(clock: DemoClock): HealthTracker {
+  const tracker = new HealthTracker();
+  const anchor = clock.startedAt - 2 * DAY_MS;
+  const now = clock.now();
+  for (const app of DEMO_APPS) {
+    const samples = Array.from({ length: HISTORY_LENGTH }, (_, k) => healthAt(app, now - (HISTORY_LENGTH - 1 - k) * CHECK_SPACING_MS));
+    // The first probe is recorded at the anchor so a steady app reports "up since" two days ago.
+    tracker.record(serviceId(app), samples[0]!.status, samples[0]!.latency, new Date(anchor));
+    samples.forEach((s, k) => tracker.record(serviceId(app), s.status, s.latency, new Date(now - (HISTORY_LENGTH - 1 - k) * CHECK_SPACING_MS)));
+  }
+  return tracker;
+}
+
+/** Plays each demo app's upstream: the JSON the real app would send, or a refused connection while it is down. */
+function demoHttp(clock: DemoClock): HttpPort {
+  const byHost = new Map(DEMO_APPS.map((app) => [containerName(app), app]));
+  return (url, options) => {
+    const target = new URL(url);
+    const app = byHost.get(target.hostname);
+    const seconds = clock.now() / 1000;
+    if (!app || app.demo.outage?.(seconds) === 'down') return Promise.reject(new Error('connection refused'));
+    const body = app.demo.serve({ method: options?.method ?? 'GET', path: `${target.pathname}${target.search}`, seconds });
+    const status = body === null ? 404 : 200;
+    return Promise.resolve({ status, headers: new Headers(), body: JSON.stringify(body) });
   };
 }
 
-export class DemoSource implements StateSource {
-  private readonly startedAt = Date.now();
+function demoCheck(clock: DemoClock): (url: string) => Promise<CheckResult> {
+  const byHost = new Map(DEMO_APPS.map((app) => [containerName(app), app]));
+  return (url) => {
+    const app = byHost.get(new URL(url).hostname);
+    const { status, latency } = app ? healthAt(app, clock.now()) : { status: 'down' as Status, latency: null };
+    return Promise.resolve(status === 'down' || latency === null ? { httpStatus: null, latencyMs: 0 } : { httpStatus: 200, latencyMs: latency });
+  };
+}
 
-  start(): Promise<void> {
-    return Promise.resolve();
-  }
-
-  stop(): void {}
-
-  snapshot(): State {
-    return demoState(Date.now(), this.startedAt);
-  }
+/** The real Engine, fed a pretend homelab. Pass a clock to freeze or step time in tests. */
+export function createDemoSource(clock: DemoClock = { now: Date.now, startedAt: Date.now() }): Engine {
+  const anchor = clock.startedAt - 2 * DAY_MS;
+  return new Engine({
+    config: demoConfig(),
+    health: seedHealth(clock),
+    credentials: (app) => app.demo?.credential ?? null,
+    inputs: {
+      docker: () => Promise.resolve(DEMO_APPS.map((app) => containerFor(app, anchor))),
+      http: demoHttp(clock),
+      check: demoCheck(clock),
+      host: {
+        sample: () => Promise.resolve(),
+        get current() {
+          return hostAt(clock.now(), clock.startedAt);
+        },
+      },
+      now: clock.now,
+    },
+  });
 }

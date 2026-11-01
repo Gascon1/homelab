@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { imageBaseName } from '../src/catalog.ts';
+import { imageBaseName } from '../src/apps/index.ts';
 import { validateConfig } from '../src/config.ts';
 import { derivePorts } from '../src/docker.ts';
 import { compareGroups, resolveServices } from '../src/resolve.ts';

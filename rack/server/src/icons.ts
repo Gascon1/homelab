@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { ICON_FALLBACKS } from './catalog.ts';
+import { iconFallback } from './apps/index.ts';
 
 const SLUG = /^[a-z0-9-]+$/;
 const MISS_TTL_MS = 60 * 60 * 1000;
@@ -47,7 +47,7 @@ export class IconStore {
     const cached = await this.fromDisk(slug);
     if (cached) return cached;
 
-    const candidates = [slug, ICON_FALLBACKS[slug]].filter((s): s is string => Boolean(s));
+    const candidates = [slug, iconFallback(slug)].filter((s): s is string => Boolean(s));
     for (const candidate of candidates) {
       for (const format of FORMATS) {
         const body = await this.download(`${this.cdn}/${format.dir}/${candidate}.${format.ext}`);

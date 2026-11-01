@@ -1,15 +1,14 @@
+import type { RackConfig } from './config.ts';
 import { ConfigStore } from './config.ts';
-import { Secrets } from './credentials.ts';
+import { appForWidget, AppRunner, envCredentials, failedWidget, request, unknownWidget, type CredentialLookup, type HttpPort, type WidgetOutcome } from './apps/index.ts';
 import { buildDisplay, type DisplayInput } from './display.ts';
 import { DockerUnavailable, listContainers, type ContainerInfo } from './docker.ts';
 import type { Env } from './env.ts';
-import { HealthTracker, httpCheck, statusFor } from './health.ts';
+import { HealthTracker, httpCheck, statusFor, type CheckResult } from './health.ts';
 import { HostSampler } from './host.ts';
 import { every } from './loop.ts';
 import { compareGroups, compareServices, resolveServices, type ResolvedService } from './resolve.ts';
-import type { Service, State, StateSource } from './types.ts';
-import { createWidgetRegistry } from './widgets/index.ts';
-import { runWidget, unknownWidget, type WidgetOutcome } from './widgets/run.ts';
+import type { Host, Service, State, StateSource } from './types.ts';
 
 const DOCKER_MS = 10_000;
 const HEALTH_MS = 20_000;
@@ -17,13 +16,42 @@ const HOST_MS = 3_000;
 const CONFIG_MS = 2_000;
 const WIDGET_TICK_MS = 1_000;
 
-export class LiveSource implements StateSource {
-  private readonly env: Env;
-  private readonly config: ConfigStore;
-  private readonly secrets: Secrets;
-  private readonly health = new HealthTracker();
-  private readonly host: HostSampler;
-  private readonly widgetModules = createWidgetRegistry();
+/** Where the engine reads rack.yml settings from. ConfigStore is the live adapter. */
+export interface ConfigSource {
+  readonly config: RackConfig;
+  readonly warnings: string[];
+  /** Returns true when the effective config changed. */
+  refresh(): Promise<boolean>;
+}
+
+/**
+ * Everything the engine reads from the outside world. The live adapters talk to Docker, the apps,
+ * /proc and the clock; the demo and the tests supply fakes. The projection above this seam is shared.
+ */
+export interface EngineInputs {
+  /** Containers that opted in or are named in rack.yml. */
+  docker(wantedIds: ReadonlySet<string>): Promise<ContainerInfo[]>;
+  /** How widgets reach the apps. */
+  http: HttpPort;
+  /** One health probe of an app's internal address. */
+  check(url: string): Promise<CheckResult>;
+  host: { sample(): Promise<void>; readonly current: Host };
+  now(): number;
+}
+
+export interface EngineOptions {
+  config: ConfigSource;
+  inputs: EngineInputs;
+  credentials: CredentialLookup;
+  /** Pass a pre-filled tracker to start with history. */
+  health?: HealthTracker;
+}
+
+export class Engine implements StateSource {
+  private readonly config: ConfigSource;
+  private readonly inputs: EngineInputs;
+  private readonly runner: AppRunner;
+  private readonly health: HealthTracker;
   private readonly widgetResults = new Map<string, WidgetOutcome & { at: number }>();
   private readonly widgetsRunning = new Set<string>();
   private containers: ContainerInfo[] = [];
@@ -32,19 +60,24 @@ export class LiveSource implements StateSource {
   private healthRunning = false;
   private stoppers: (() => void)[] = [];
 
-  constructor(env: Env) {
-    this.env = env;
-    this.config = new ConfigStore(env.configDir);
-    this.secrets = new Secrets(env.vars, env.appdataDir);
-    this.host = new HostSampler(env.procDir, env.sysDir, () => this.config.config.disks);
+  constructor(options: EngineOptions) {
+    this.config = options.config;
+    this.inputs = options.inputs;
+    this.runner = new AppRunner(options.inputs.http, options.credentials);
+    this.health = options.health ?? new HealthTracker();
+  }
+
+  /** One round of every input, without timers. start() does this, then keeps it going. */
+  async refresh(): Promise<void> {
+    await this.config.refresh();
+    await this.refreshDocker();
+    await Promise.all([this.pollWidgets(), this.inputs.host.sample()]);
   }
 
   async start(): Promise<void> {
-    await this.config.refresh();
-    await this.refreshDocker();
-    await Promise.all([this.pollWidgets(), this.host.sample()]);
+    await this.refresh();
     // A second quick sample gives the CPU gauge a value without waiting a full interval.
-    setTimeout(() => void this.host.sample(), 500).unref();
+    setTimeout(() => void this.inputs.host.sample(), 500).unref();
 
     this.stoppers = [
       every(CONFIG_MS, async () => {
@@ -56,7 +89,7 @@ export class LiveSource implements StateSource {
       every(DOCKER_MS, () => this.refreshDocker()),
       every(HEALTH_MS, () => this.checkHealth()),
       every(WIDGET_TICK_MS, () => this.pollWidgets()),
-      every(HOST_MS, () => this.host.sample()),
+      every(HOST_MS, () => this.inputs.host.sample()),
     ];
   }
 
@@ -67,7 +100,7 @@ export class LiveSource implements StateSource {
 
   private async refreshDocker(): Promise<void> {
     try {
-      this.containers = await listContainers(this.env.dockerSocket, new Set(this.config.config.services.keys()));
+      this.containers = await this.inputs.docker(new Set(this.config.config.services.keys()));
       this.dockerWarning = null;
     } catch (err) {
       this.dockerWarning = err instanceof DockerUnavailable ? err.warning : 'Docker could not be queried';
@@ -80,6 +113,7 @@ export class LiveSource implements StateSource {
     this.services = resolveServices(this.containers, this.config.config);
     const ids = new Set(this.services.map((s) => s.id));
     this.health.forgetExcept(ids);
+    this.runner.forgetExcept(ids);
     for (const id of this.widgetResults.keys()) if (!ids.has(id)) this.widgetResults.delete(id);
   }
 
@@ -92,13 +126,13 @@ export class LiveSource implements StateSource {
         this.services.map(async (service) => {
           const known = this.health.get(service.id);
           if (service.container && service.container.state !== 'running') {
-            this.health.markStopped(service.id);
+            this.health.markStopped(service.id, new Date(this.inputs.now()));
             return;
           }
           if (onlyNew && known && known.status !== 'stopped') return;
           if (!service.internal) return;
-          const check = await httpCheck(service.internal);
-          this.health.record(service.id, statusFor(service.container, check), check.latencyMs);
+          const check = await this.inputs.check(service.internal);
+          this.health.record(service.id, statusFor(service.container, check), check.latencyMs, new Date(this.inputs.now()));
         }),
       );
     } finally {
@@ -107,28 +141,27 @@ export class LiveSource implements StateSource {
   }
 
   private async pollWidgets(): Promise<void> {
-    const now = Date.now();
+    const now = this.inputs.now();
     await Promise.all(
       this.services.map(async (service) => {
         if (!service.widget || this.widgetsRunning.has(service.id)) return;
-        const module = this.widgetModules.get(service.widget);
+        const app = appForWidget(service.widget);
         const previous = this.widgetResults.get(service.id);
-        if (module && previous && now - previous.at < module.intervalMs) return;
+        if (app?.widget && previous && now - previous.at < app.widget.intervalMs) return;
 
         this.widgetsRunning.add(service.id);
         try {
           const outcome =
-            !module
+            !app
               ? unknownWidget(service.widget)
               : !service.internal
-                ? failure(module.type, `${service.name} has no internal address for Rack to query`)
-                : await runWidget(module, {
+                ? failedWidget(app.id, `${service.name} has no internal address for Rack to query`)
+                : await this.runner.run(app, {
                     serviceId: service.id,
                     name: service.name,
                     baseUrl: service.internal.replace(/\/+$/, ''),
-                    secrets: this.secrets,
                   });
-          this.widgetResults.set(service.id, { ...outcome, at: Date.now() });
+          this.widgetResults.set(service.id, { ...outcome, at: this.inputs.now() });
         } finally {
           this.widgetsRunning.delete(service.id);
         }
@@ -159,18 +192,14 @@ export class LiveSource implements StateSource {
 
     return {
       title: config.title ?? 'Homelab',
-      generatedAt: new Date().toISOString(),
+      generatedAt: new Date(this.inputs.now()).toISOString(),
       display: buildDisplay(display),
       groups,
       bookmarks: config.bookmarks,
-      host: this.host.current,
+      host: this.inputs.host.current,
       warnings,
     };
   }
-}
-
-function failure(type: string, error: string): WidgetOutcome {
-  return { widget: { type, ok: false, error, stats: [], meter: null }, lines: [] };
 }
 
 function toService(resolved: ResolvedService, health: HealthTracker, widget: WidgetOutcome | undefined): Service {
@@ -200,4 +229,20 @@ function toService(resolved: ResolvedService, health: HealthTracker, widget: Wid
     },
     widget: widget?.widget ?? null,
   };
+}
+
+/** The engine wired to the real Docker socket, the real apps, /proc and the system clock. */
+export function createLiveSource(env: Env): Engine {
+  const config = new ConfigStore(env.configDir);
+  return new Engine({
+    config,
+    credentials: envCredentials({ vars: env.vars, appdataDir: env.appdataDir }),
+    inputs: {
+      docker: (wantedIds) => listContainers(env.dockerSocket, wantedIds),
+      http: request,
+      check: httpCheck,
+      host: new HostSampler(env.procDir, env.sysDir, () => config.config.disks),
+      now: Date.now,
+    },
+  });
 }

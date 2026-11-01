@@ -1,7 +1,7 @@
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { LiveSource } from './engine.ts';
-import { DemoSource } from './demo.ts';
+import { createDemoSource } from './demo.ts';
+import { createLiveSource } from './engine.ts';
 import type { Env } from './env.ts';
 import { EventHub } from './hub.ts';
 import { IconStore, isValidSlug } from './icons.ts';
@@ -17,7 +17,7 @@ export interface App {
 
 const ICON_CSP = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
 
-export async function startApp(env: Env, source: StateSource = env.demo ? new DemoSource() : new LiveSource(env)): Promise<App> {
+export async function startApp(env: Env, source: StateSource = env.demo ? createDemoSource() : createLiveSource(env)): Promise<App> {
   const hub = new EventHub(source);
   const icons = new IconStore(env.configDir, env.iconCdn);
 

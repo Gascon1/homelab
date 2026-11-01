@@ -1,6 +1,6 @@
 import { formatCount } from './format.ts';
 import type { Status } from './types.ts';
-import type { DisplayLine } from './widgets/types.ts';
+import type { DisplayLine } from './apps/types.ts';
 
 export const MAX_SENTENCE = 48;
 const MAX_LINES = 5;
