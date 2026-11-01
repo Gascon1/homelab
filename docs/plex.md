@@ -43,10 +43,11 @@ Plex is a media server that organizes and streams your personal media collection
 
 ### Claiming the Server
 
-On first run, you may need to claim the server. You can either:
+On first run, Plex must be claimed by your account. Open `http://<server-ip>:32400/web` from your LAN and sign in. If Plex does not offer the server, it sees your request as remote: open it through an SSH tunnel instead, then browse to `http://localhost:32400/web`.
 
-- Access the web UI from the server's local network
-- Set `PLEX_CLAIM` environment variable with a claim token from [plex.tv/claim](https://www.plex.tv/claim/)
+```bash
+ssh -L 32400:localhost:32400 <user>@<server-ip>
+```
 
 ### Remote Access
 

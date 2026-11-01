@@ -21,7 +21,7 @@ FlareSolverr (8191) is not published on the host; Prowlarr reaches it at `http:/
 
 ## Quick Start
 
-Building a new server? Follow [docs/SETUP.md](docs/SETUP.md). It lists every step in order, including the manual ones (accounts, VPN key, app logins, router, Tailscale, GitHub), and every file and setting that lives outside git.
+**New server:** follow [docs/SETUP.md](docs/SETUP.md), every step in order with a check for each. The commands below are the short form for someone who knows the stack.
 
 ```bash
 # Clone the repository
@@ -96,45 +96,7 @@ ${UPLOAD_LOCATION}/       # Photo and video uploads
 
 ## Manual Setup Steps
 
-### 1. Storage Configuration
-
-Mount your storage drives persistently:
-
-```bash
-# Find drive UUIDs
-sudo blkid
-
-# Add to /etc/fstab
-echo "UUID=<your-uuid>  /srv/data  ext4  defaults  0  2" | sudo tee -a /etc/fstab
-
-# Mount
-sudo mount -a
-```
-
-### 2. Initial Directory Setup
-
-```bash
-# Run the setup script
-chmod +x setup.sh
-./setup.sh
-```
-
-This creates all required directories under `appdata/` and the data directories.
-
-### 3. Configure Services
-
-After starting the stack, each service needs initial configuration:
-
-1. **Plex**: Sign in with Plex account, add libraries
-2. **qBittorrent**: Change default password, configure download paths
-3. **Radarr/Sonarr**: Add root folders, connect to qBittorrent
-4. **Prowlarr**: Add indexers, connect to Radarr/Sonarr
-5. **Seerr**: Connect to Plex, Radarr, and Sonarr
-6. **Immich**: Create admin account, configure backup
-
-See individual [service documentation](docs/) for detailed setup instructions.
-
-For advanced configuration, check [TRaSH Guides](https://trash-guides.info/) - comprehensive guides for Radarr, Sonarr, Prowlarr, qBittorrent, and Plex with optimal settings tested by thousands of users.
+[docs/SETUP.md](docs/SETUP.md) owns them: storage, `.env`, the NordVPN key, app configuration order and logins, remote access and deploys. App settings live in each [service doc](docs/); the [TRaSH Guides](https://trash-guides.info/) cover tuning.
 
 ## Adding a new service
 
@@ -189,14 +151,7 @@ All services run on a shared `homelab` Docker network, allowing them to communic
 
 ## Backups
 
-Critical data to backup:
-
-| Data            | Location              | Priority                      |
-| --------------- | --------------------- | ----------------------------- |
-| Service configs | `./appdata/`          | High                          |
-| Immich database | `${DB_DATA_LOCATION}` | High                          |
-| Photos/Videos   | `${UPLOAD_LOCATION}`  | Critical                      |
-| Media library   | `${DATA_DIR}/media/`  | Medium (can be re-downloaded) |
+[docs/SETUP-STATE.md](docs/SETUP-STATE.md) lists everything that lives outside git, what to back up (photos in `${UPLOAD_LOCATION}` first), and how to restore on a new server.
 
 ## Remote Access
 
