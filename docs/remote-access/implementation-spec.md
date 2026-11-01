@@ -240,7 +240,7 @@ TS_AUTHKEY=
 TS_HOSTNAME=homelab
 TS_TAILNET=tailnet-name.ts.net
 
-# Extra flags for `tailscale set` (usually empty)
+# Extra flags for `tailscale up`, applied at first login only (usually empty)
 TS_EXTRA_ARGS=
 
 # Plex: comma-separated URLs advertised to clients. Default: http://${HOST_ADDR}:32400/

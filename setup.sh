@@ -31,7 +31,8 @@ load_env() {
         if [[ "$line" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
             key="${BASH_REMATCH[2]}"
             value="${BASH_REMATCH[3]}"
-            if [[ "$value" =~ ^\"(.*)\"[[:space:]]*$ ]] || [[ "$value" =~ ^\'(.*)\'[[:space:]]*$ ]]; then
+            # Quoted values may be followed by an inline comment (KEY="v" # note), as in compose
+            if [[ "$value" =~ ^\"([^\"]*)\"[[:space:]]*(#.*)?$ ]] || [[ "$value" =~ ^\'([^\']*)\'[[:space:]]*(#.*)?$ ]]; then
                 value="${BASH_REMATCH[1]}"
             else
                 # Unquoted: drop an inline " # comment" and trailing spaces, like docker compose
