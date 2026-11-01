@@ -19,3 +19,6 @@ rack/**/dist
 # Host deployer (see docs/deploy.md): local config and state
 deploy/deploy.env
 .deploy-state/
+
+# Python bytecode (deploy-hook tests)
+__pycache__/
