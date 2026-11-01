@@ -50,7 +50,7 @@ On first run, you may need to claim the server. You can either:
 
 ### Remote Access
 
-Configure remote access in Settings → Remote Access. The `ADVERTISE_IP` environment variable helps clients discover the correct address.
+Configure remote access in Settings → Remote Access. To advertise extra addresses (for example your tailnet URL), set Settings → Network → "Custom server access URLs", such as `http://<LAN-IP>:32400,https://homelab.<tailnet>.ts.net:32400`. The `ADVERTISE_IP` variable does not work with the linuxserver image.
 
 ## Integration with Other Services
 

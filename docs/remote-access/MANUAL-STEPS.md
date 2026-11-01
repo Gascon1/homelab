@@ -32,19 +32,20 @@ The tasks make your homelab safe. Then they let you reach it from outside your h
 | [ ] | 6. BIND_ADDR | Publish the web pages on the LAN address only | 5 min |
 | [ ] | 7. Tailscale account | Make the account | 5 min |
 | [ ] | 8. MagicDNS and HTTPS | Turn on names and certificates | 5 min |
-| [ ] | 9. Access rules | Paste the ACL policy | 10 min |
+| [ ] | 9. Access rules | Paste the ACL policy (uses `grants`) | 10 min |
 | [ ] | 10. Auth key | Make a key for the server | 5 min |
 | [ ] | 11. `.env` values | Write the Tailscale values | 5 min |
 | [ ] | 12. Start the `remote` profile | Start `tailscale` and `caddy` | 5 min |
-| [ ] | 13. Remove the key | Delete the key from `.env` | 2 min |
-| [ ] | 14. Device approval | Approve each new device | 3 min |
-| [ ] | 15. Your devices | Install Tailscale on phone and laptop | 10 min |
-| [ ] | 16. Phone apps | Set the Immich, Plex and Seerr addresses | 10 min |
-| [ ] | 17. Test from outside | Test with mobile data | 10 min |
-| [ ] | 18. Plex over Tailscale | Tell Plex the tailnet address | 5 min |
-| [ ] | 19. Plex for family without Tailscale (optional) | Use Plex Remote Access | 10 min |
-| [ ] | 20. Family invites (optional) | Invite family to the tailnet | 10 min |
-| [ ] | 21. Updates | Update the containers each week | 5 min |
+| [ ] | 13. Examine the new containers | Check images, Caddyfile, health and certificate | 10 min |
+| [ ] | 14. Remove the key | Delete the key from `.env` | 2 min |
+| [ ] | 15. Device approval | Approve each new device | 3 min |
+| [ ] | 16. Your devices | Install Tailscale on phone and laptop | 10 min |
+| [ ] | 17. Phone apps | Set the Immich, Plex and Seerr addresses | 10 min |
+| [ ] | 18. Test from outside | Test with mobile data | 10 min |
+| [ ] | 19. Plex over Tailscale | Set the custom server access URLs | 5 min |
+| [ ] | 20. Plex for family without Tailscale (optional) | Use Plex Remote Access | 10 min |
+| [ ] | 21. Family invites (optional) | Invite family to the tailnet | 10 min |
+| [ ] | 22. Updates | Update the containers each week | 5 min |
 
 ---
 
@@ -181,7 +182,7 @@ Each router has different menus. Use the manual of your router if you cannot fin
 **Result:** The router shows no port forwards and UPnP is off. The server keeps the same LAN address after a restart.
 
 > **NOTE**
-> If you want Plex for family without Tailscale, you add one port forward in Task 19. Do not add it now.
+> If you want Plex for family without Tailscale, you add one port forward in Task 20. Do not add it now.
 
 ### Task 6. Set BIND_ADDR and check the exposure
 
@@ -263,6 +264,9 @@ cat docs/remote-access/tailscale-policy.example.hujson
 **Result:** The page shows a green message that the policy is saved. It shows no errors.
 
 > **NOTE**
+> The file uses `grants`. The old `acls` syntax is not used. The admin console must accept the file without errors. If it shows an error, do not continue.
+
+> **NOTE**
 > Do this task before Task 10. The tag `tag:homelab` must exist before you make the auth key.
 
 ### Task 10. Make the auth key
@@ -270,7 +274,10 @@ cat docs/remote-access/tailscale-policy.example.hujson
 **Why:** The server uses the key to join your tailnet one time.
 
 > **WARNING**
-> The auth key works like a password. Do not send it to other people. Do not save it in a file other than `.env`. Delete it from `.env` in Task 13.
+> The auth key works like a password. Do not send it to other people. Do not save it in a file other than `.env`. Delete it from `.env` in Task 14.
+
+> **CAUTION**
+> Never add `--advertise-routes` to `TS_EXTRA_ARGS`. It makes every container reachable from the tailnet. FlareSolverr is also reachable then.
 
 1. In the admin console, open Settings > Keys.
 2. Click Generate auth key.
@@ -334,7 +341,54 @@ docker compose --profile remote ps
 > **NOTE**
 > If `./setup.sh` says that you need more rights, type `sudo ./setup.sh`. The script uses `chown`.
 
-### Task 13. Remove the auth key
+### Task 13. Examine the new containers on the server
+
+**Why:** These checks find faults before you test from a phone.
+
+1. Make sure the images exist.
+
+```bash
+docker compose --profile remote pull
+```
+
+2. Validate the Caddyfile.
+
+```bash
+docker compose --profile remote run --rm --no-deps --entrypoint caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+```
+
+3. Make sure the command ends with "Valid configuration".
+4. Make sure the health check reports healthy.
+
+```bash
+docker compose --profile remote ps
+```
+
+5. Make sure Caddy gets the certificate.
+
+```bash
+docker compose logs caddy
+```
+
+6. Look for a certificate obtained from Tailscale. Make sure the log shows no error.
+7. In the admin console, open the Machines page.
+8. Make sure the machine name is exactly `homelab`. The name must not end in `-1`.
+9. Restart `tailscale`.
+
+```bash
+docker compose restart tailscale
+```
+
+10. Wait 1 minute. Make sure Caddy still works.
+11. If Caddy does not work, recreate it.
+
+```bash
+docker compose --profile remote up -d --force-recreate caddy
+```
+
+**Result:** The Caddyfile is valid. Both containers are healthy. Caddy has its certificate. The machine name is `homelab`.
+
+### Task 14. Remove the auth key
 
 **Why:** The server stays signed in without the key. A key in `.env` is a risk.
 
@@ -352,7 +406,7 @@ docker compose --profile remote up -d
 
 **Result:** `.env` has no key. The machine `homelab` is still online in the admin console.
 
-### Task 14. Turn on device approval
+### Task 15. Turn on device approval
 
 **Why:** A new device then needs your approval before it can join the tailnet.
 
@@ -363,13 +417,13 @@ docker compose --profile remote up -d
 **Result:** The page shows Device approval on. The machine `homelab` stays online.
 
 > **NOTE**
-> Devices that join now wait for your approval. Open the Machines page and click Approve for each new device. Do this in Task 15 for your phone and laptop.
+> Devices that join now wait for your approval. Open the Machines page and click Approve for each new device. Do this in Task 16 for your phone and laptop.
 
 ---
 
 ## Part C: Use it
 
-### Task 15. Install Tailscale on your phone and laptop
+### Task 16. Install Tailscale on your phone and laptop
 
 **Why:** A device must run Tailscale to reach the server from outside.
 
@@ -383,7 +437,7 @@ docker compose --profile remote up -d
 
 **Result:** The browser shows a padlock and the Rack dashboard. The links in Rack open each app.
 
-### Task 16. Set the phone apps
+### Task 17. Set the phone apps
 
 **Why:** The apps need the new address to work away from home.
 
@@ -399,7 +453,7 @@ Keep Tailscale on while you do these steps.
 
 **Result:** The Immich app shows your photos. Seerr shows the sign-in page.
 
-### Task 17. Test from outside
+### Task 18. Test from outside
 
 **Why:** This test shows that the system works with Tailscale and is closed without it.
 
@@ -439,35 +493,40 @@ curl ifconfig.me
 nmap -Pn -p 1-65535 <PUBLIC-IP>
 ```
 
-15. Read the result. All ports must show as closed or filtered. Port 32400 can be open if you did Task 19.
+15. Read the result. All ports must show as closed or filtered. Port 32400 can be open if you did Task 20.
 
 **Result:** Without Tailscale, no page loads. With Tailscale, each page loads with a padlock and asks for a login.
 
-### Task 18. Tell Plex the tailnet address
+### Task 19. Tell Plex the tailnet address
 
 **Why:** Plex tells its apps which addresses to use. The apps then find the server over the tailnet.
 
-1. Open the `.env` file.
-2. Find the line `# PLEX_ADVERTISE_URLS=`.
-3. Remove the `#` and write both addresses. Separate them with a comma and no space.
+1. Open Plex at `http://<SERVER-LAN-IP>:32400/web`.
+2. Open Settings > Network.
+3. Find "Custom server access URLs".
+4. Type this text in the field.
 
-```ini
-PLEX_ADVERTISE_URLS=http://<SERVER-LAN-IP>:32400/,https://homelab.<YOUR-TAILNET>:32400
+```text
+http://<SERVER-LAN-IP>:32400,https://homelab.<YOUR-TAILNET>:32400
 ```
 
-4. Save the file.
-5. Restart Plex with the new value.
-
-```bash
-docker compose up -d plex
-```
+5. Find "List of IP addresses and networks that are allowed without auth".
+6. Make sure this field is EMPTY.
+7. Click Save Changes.
+8. Optional: on a phone, turn Wi-Fi off and Tailscale on.
+9. Optional: play a video in the Plex app.
+10. Optional: on the server, open the Plex dashboard. Look at the stream.
+11. Optional: note if the stream shows as "Local".
 
 **Result:** The Plex app on your phone finds the server when Tailscale is on and Wi-Fi is off.
 
-> **NOTE**
-> Plex can count a tailnet connection as remote. Remote streaming of your own media needs a Plex Pass on your account. Or the viewer needs a Remote Watch Pass.
+> **WARNING**
+> If the allowed-without-auth list contains 172.16.0.0/12 or your LAN range, every user through Tailscale skips the Plex sign-in. Keep the list empty.
 
-### Task 19. Plex for family without Tailscale (optional)
+> **NOTE**
+> If the stream shows as "Local", remote streaming may not need a Plex Pass. This result is not certain. Otherwise, remote streaming of your own media needs a Plex Pass on your account. Or the viewer needs a Remote Watch Pass.
+
+### Task 20. Plex for family without Tailscale (optional)
 
 **Why:** Some family members do not want to install Tailscale. Plex has its own remote access with its own login.
 
@@ -489,7 +548,7 @@ docker compose up -d plex
 > **NOTE**
 > Remote streaming needs a Plex Pass on your account, or a Remote Watch Pass on the account of the viewer.
 
-### Task 20. Invite family to the tailnet (optional)
+### Task 21. Invite family to the tailnet (optional)
 
 **Why:** Family members who use Tailscale can reach Plex, Immich and Seerr. They cannot reach the other apps.
 
@@ -512,7 +571,7 @@ docker compose up -d plex
 > **NOTE**
 > The free plan allows up to 6 users.
 
-### Task 21. Update the containers each week
+### Task 22. Update the containers each week
 
 **Why:** Old images can have known faults. Update on purpose and not by chance.
 
@@ -538,7 +597,7 @@ docker compose --profile remote pull && docker compose --profile remote up -d --
 | The log says the auth key is not valid. | Make a new key (Task 10). Write it in `.env`. Run `docker compose --profile remote up -d`. |
 | The browser shows a certificate error. | Make sure HTTPS Certificates is on (Task 8). Make sure `TS_TAILNET` is correct. Run `docker compose restart caddy`. |
 | The name `homelab.<YOUR-TAILNET>` does not resolve. | Make sure Tailscale is on in the phone app. Make sure MagicDNS is on (Task 8). |
-| The page does not load, and Tailscale is on. | Make sure the device is approved (Task 14). Run `docker compose --profile remote ps` to see if `caddy` runs. |
+| The page does not load, and Tailscale is on. | Make sure the device is approved (Task 15). Run `docker compose --profile remote ps` to see if `caddy` runs. |
 | `caddy` does not start, or stops after a restart of `tailscale`. | Run `docker compose --profile remote up -d`. This starts `caddy` again. |
 | The machine is named `homelab-1`. | An old machine named `homelab` exists. Delete the old machine in the admin console. Or set `TS_HOSTNAME` to a new name and use that name. |
 | Rack links do not open. | Use the Rack address `https://homelab.<YOUR-TAILNET>` with no port. Do not use the LAN address. |
@@ -547,7 +606,7 @@ docker compose --profile remote pull && docker compose --profile remote up -d --
 | Radarr or Sonarr cannot reach qBittorrent. | Type the new password in Settings > Download Clients (Task 2). |
 | Rack shows no data for qBittorrent. | Make sure the `RACK_QBITTORRENT_*` values in `.env` are correct. Run `docker compose up -d rack`. |
 | `./scripts/check-exposure.sh` shows a warning. | Make sure `BIND_ADDR` has the LAN address. Run `docker compose up -d`. Run the script again. |
-| The Plex app cannot find the server over Tailscale. | Examine `PLEX_ADVERTISE_URLS` in `.env` (Task 18). Run `docker compose up -d plex`. |
+| The Plex app cannot find the server over Tailscale. | Examine "Custom server access URLs" in Plex > Settings > Network (Task 19). |
 | Immich does not start after you changed `DB_PASSWORD`. | Write the old value back in `.env`. Run `docker compose up -d`. |
 
 ## How to undo
@@ -567,12 +626,8 @@ docker compose --profile remote rm -f caddy tailscale
 ```
 
 3. Open `.env`. Put the `#` back in front of `COMPOSE_PROFILES=remote`.
-4. In `.env`, delete the values of `TS_AUTHKEY` and `PLEX_ADVERTISE_URLS`.
-5. Apply the Plex change.
-
-```bash
-docker compose up -d plex
-```
+4. In `.env`, delete the value of `TS_AUTHKEY`.
+5. In Plex, open Settings > Network. Delete the tailnet address from "Custom server access URLs".
 
 6. In the admin console, open the Machines page. Delete the machine `homelab`.
 7. Open Settings > Keys. Revoke all keys that are still in the list.
@@ -582,7 +637,7 @@ docker compose up -d plex
 rm -r appdata/tailscale
 ```
 
-9. In your router, delete the port forward for TCP 32400 if you added it in Task 19.
+9. In your router, delete the port forward for TCP 32400 if you added it in Task 20.
 10. If you want the old LAN behavior, set `BIND_ADDR=0.0.0.0` in `.env`. Then type this command.
 
 ```bash

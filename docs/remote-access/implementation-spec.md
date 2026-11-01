@@ -27,20 +27,12 @@ Audience: the implementer agent. Follow it literally. Do not commit or push. Con
 
 ### 2.1 `compose.yml`
 
-**(a) Plex ADVERTISE_IP (HL-11).** In the `plex` service, replace
+**(a) Plex ADVERTISE_IP (HL-11).** *Corrected 2026-11-01:* `linuxserver/plex` ignores `ADVERTISE_IP` (only `plexinc/pms-docker` reads it). In the `plex` service, delete the `ADVERTISE_IP` line and add this comment instead. Remote URLs go in Plex > Settings > Network > "Custom server access URLs".
 
 ```yaml
-      - ADVERTISE_IP=${HOST_ADDR}:32400/
+      # Remote URLs (e.g. your tailnet URL) are not set here: linuxserver/plex ignores ADVERTISE_IP.
+      # Set them in Plex > Settings > Network > "Custom server access URLs".
 ```
-
-with
-
-```yaml
-      # Comma-separated URLs Plex advertises to clients. Add your tailnet URL via PLEX_ADVERTISE_URLS (see .env.example)
-      - ADVERTISE_IP=${PLEX_ADVERTISE_URLS:-http://${HOST_ADDR}:32400/}
-```
-
-(Nested default interpolation was verified with Compose v5.6.1: it renders `http://10.0.0.100:32400/`.)
 
 **(b) New services.** Insert these two services **after the `filebrowser` service and before the top-level `volumes:` key**, keeping 2-space indentation under `services:`:
 
@@ -242,10 +234,6 @@ TS_TAILNET=tailnet-name.ts.net
 
 # Extra flags for `tailscale up`, applied at first login only (usually empty)
 TS_EXTRA_ARGS=
-
-# Plex: comma-separated URLs advertised to clients. Default: http://${HOST_ADDR}:32400/
-# To use Plex over Tailscale: http://10.0.0.100:32400/,https://homelab.tail1234.ts.net:32400
-# PLEX_ADVERTISE_URLS=
 ```
 
 ### 2.4 `setup.sh` (HL-12)
@@ -322,6 +310,8 @@ The owner pastes this into the Tailscale admin console (Access controls). Create
 ```hujson
 // Example tailnet policy for this homelab. Paste into admin console > Access controls,
 // then replace the example family address(es). Keep "tagOwners" before creating the auth key.
+// Uses "grants" (the current syntax). The older "acls" syntax still works but is legacy.
+// There is no SSH section on purpose: the Tailscale container does not run Tailscale SSH.
 {
 	"tagOwners": {
 		"tag:homelab": ["autogroup:admin"],
@@ -332,15 +322,15 @@ The owner pastes this into the Tailscale admin console (Access controls). Create
 		"group:family": ["family-member@example.com"],
 	},
 
-	"acls": [
+	"grants": [
 		// You (tailnet admins): everything on the server
-		{"action": "accept", "src": ["autogroup:admin"], "dst": ["tag:homelab:*"]},
+		{"src": ["autogroup:admin"], "dst": ["tag:homelab"], "ip": ["*"]},
 
 		// Family: Plex 32400, Immich 2283, Seerr 5055 only (no Rack, Netdata, *arr, qBittorrent, File Browser)
-		{"action": "accept", "src": ["group:family"], "dst": ["tag:homelab:32400,2283,5055"]},
+		{"src": ["group:family"], "dst": ["tag:homelab"], "ip": ["tcp:32400", "tcp:2283", "tcp:5055"]},
 
 		// Everyone's own devices can still talk to each other
-		{"action": "accept", "src": ["autogroup:member"], "dst": ["autogroup:self:*"]},
+		{"src": ["autogroup:member"], "dst": ["autogroup:self"], "ip": ["*"]},
 	],
 }
 ```
@@ -401,12 +391,10 @@ From `/home/user/homelab`:
 cp .env.example .env
 docker compose config -q && echo OK-default
 docker compose --profile remote config -q && echo OK-remote
-docker compose --profile remote config | grep -nE 'ADVERTISE_IP|CADDY_DOMAIN|network_mode|tailscale-socket'
-#   expect: ADVERTISE_IP: http://10.0.0.100:32400/ ; CADDY_DOMAIN: homelab.tailnet-name.ts.net ;
+docker compose --profile remote config | grep -nE 'CADDY_DOMAIN|network_mode|tailscale-socket'
+#   expect: CADDY_DOMAIN: homelab.tailnet-name.ts.net ;
 #           network_mode: service:tailscale (Compose may print container:tailscale)
 docker compose config --services | grep -E '^(tailscale|caddy)$' && echo "FAIL: remote services leak into default profile" || echo OK-profile
-PLEX_ADVERTISE_URLS='http://a:32400/,https://b:32400' docker compose config | grep ADVERTISE_IP
-#   expect the override value
 docker compose --profile remote config | grep -n 'published' 
 #   expect no published ports under tailscale or caddy (eyeball the surrounding service names)
 rm .env
@@ -451,7 +439,7 @@ Rack tests: **not required** because no Rack code changes. If you do touch `rack
    2. Delete any port forwards to the server.
    3. Check that inbound IPv6 is blocked.
    4. Give the server a DHCP reservation, so it always gets the same LAN IP.
-3. **Optional LAN hardening:** in `.env` set `BIND_ADDR=<server LAN IP>` (same as `HOST_ADDR` if that is an IP), then run `docker compose up -d`.
+3. **Optional LAN hardening:** in `.env` set `BIND_ADDR=<server LAN IP>` , then run `docker compose up -d`.
 4. **Tailscale account:** sign up at tailscale.com with an account that has 2FA (Google, GitHub, Apple or Microsoft).
 5. **Admin console → DNS:** make sure **MagicDNS** is on. Under "HTTPS Certificates" click **Enable**. Note the tailnet name (`tailXXXX.ts.net`). It will appear in public certificate logs, so you can rename it to a random-looking one first if you prefer.
 6. **Admin console → Access controls:** paste `docs/remote-access/tailscale-policy.example.hujson`. Put family emails in `group:family`, or remove that line if there is no family yet. Save. (The `tag:homelab` owner must exist before step 7.)
@@ -466,7 +454,7 @@ Rack tests: **not required** because no Rack code changes. If you do touch `rack
     - Plex app: sign in normally.
     - Optional *arr/qBittorrent apps (e.g. nzb360, LunaSea): use `https://homelab.tailXXXX.ts.net:<port>`.
     - Seerr in the browser: `...:5055`.
-14. **Plex over Tailscale:** set `PLEX_ADVERTISE_URLS=http://<LAN IP>:32400/,https://homelab.tailXXXX.ts.net:32400` in `.env`, then `docker compose up -d plex`.
+14. **Plex over Tailscale:** in Plex, open Settings > Network and set "Custom server access URLs" to `http://<LAN IP>:32400,https://homelab.tailXXXX.ts.net:32400`. Leave "List of IP addresses and networks that are allowed without auth" empty.
 15. **Plex for family without Tailscale (optional):**
     1. Plex → Settings → Remote Access → enable it, then "Manually specify public port" = 32400.
     2. Forward TCP 32400 on the router to the server by hand.

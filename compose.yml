@@ -102,8 +102,8 @@ services:
       - PGID=${PGID}
       - TZ=${TZ}
       - VERSION=docker
-      # Comma-separated URLs Plex advertises to clients. Add your tailnet URL via PLEX_ADVERTISE_URLS (see .env.example)
-      - ADVERTISE_IP=${PLEX_ADVERTISE_URLS:-http://${HOST_ADDR}:32400/}
+      # Remote URLs (e.g. your tailnet URL) are not set here: linuxserver/plex ignores ADVERTISE_IP.
+      # Set them in Plex > Settings > Network > "Custom server access URLs".
     volumes:
       # Make paths match the *arr containers to avoid path-mapping pain
       - ${DATA_DIR}:/data

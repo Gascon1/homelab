@@ -55,7 +55,9 @@
 
 {$CADDY_DOMAIN}:2283 {
 	import common
-	reverse_proxy immich-server:2283
+	reverse_proxy immich-server:2283 {
+		header_up X-Real-IP {remote_host}
+	}
 }
 
 {$CADDY_DOMAIN}:19999 {

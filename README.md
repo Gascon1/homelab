@@ -51,7 +51,6 @@ TZ=America/Toronto
 # Paths
 APPDATA=./appdata
 DATA_DIR=/srv/data
-HOST_ADDR=10.0.0.100
 
 # Publish web UIs on this address only (your LAN IP, e.g. 192.168.1.10)
 BIND_ADDR=0.0.0.0
