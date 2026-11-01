@@ -44,6 +44,7 @@ Sonarr is a TV series collection manager that automates downloading, organizing,
    - Host: `qbittorrent`
    - Port: `8080`
    - Username/Password: as configured in qBittorrent
+   - Category: `sonarr` (the qBittorrent category from [qbittorrent.md](qbittorrent.md#categories-for-automation))
 
 ### Indexers
 

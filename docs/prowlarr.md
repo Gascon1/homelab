@@ -31,6 +31,15 @@ Prowlarr is an indexer manager/proxy that integrates with Radarr, Sonarr, and ot
 1. Access Prowlarr at `http://<server-ip>:9696`
 2. Set up authentication (Settings → General → Security)
 
+### FlareSolverr
+
+Some indexers sit behind Cloudflare. FlareSolverr solves the challenge for them. It is reachable only inside the `homelab` network.
+
+1. Go to Settings → Indexers → Indexer Proxies → Add → FlareSolverr
+2. Host: `http://flaresolverr:8191`
+3. Tag: `flaresolverr`
+4. Give the `flaresolverr` tag only to the indexers that need it
+
 ### Adding Indexers
 
 1. Go to Indexers → Add Indexer

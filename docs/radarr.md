@@ -44,6 +44,7 @@ Radarr is a movie collection manager that automates downloading, organizing, and
    - Host: `qbittorrent`
    - Port: `8080`
    - Username/Password: as configured in qBittorrent
+   - Category: `radarr` (the qBittorrent category from [qbittorrent.md](qbittorrent.md#categories-for-automation))
 
 ### Indexers
 
