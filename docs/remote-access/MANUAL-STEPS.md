@@ -284,10 +284,16 @@ cat docs/remote-access/tailscale-policy.example.hujson
 4. Delete the old text. Paste the new text.
 5. Find the line that starts with `"group:family"`.
 6. Replace `family-member@example.com` with the real email of each family member. Separate the emails with commas.
-7. If you have no family now, write `"group:family": [],` and keep the rest.
-8. Click Save.
+7. Find the `"tests"` section near the end. Find the line `"src": "family-member@example.com"`.
+8. Replace that email with one email from step 6. The test then checks a real family member.
+9. If you have no family now, write `"group:family": [],` in step 6.
+10. Then delete the test block that starts with `"src": "family-member@example.com"`. Keep the `tag:ci` test block.
+11. Click Save.
 
 **Result:** The page shows a green message that the policy is saved. It shows no errors.
+
+> **NOTE**
+> The error "want: Accept, got: Drop" for `family-member@example.com` means step 8 is not done. The test user must be in `group:family`.
 
 > **NOTE**
 > The file uses `grants`. The old `acls` syntax is not used. The admin console must accept the file without errors. If it shows an error, do not continue.

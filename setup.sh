@@ -143,7 +143,12 @@ fi
 # =============================================================================
 
 RACK_CONFIG="${APPDATA}/rack/rack.yml"
-if [[ ! -f "${RACK_CONFIG}" ]]; then
+if [[ ! -f "${RACK_CONFIG}" && ! -w "${APPDATA}/rack" ]]; then
+    # Docker creates a missing bind-mount folder as root, so a folder made by an
+    # earlier `docker compose up` is not writable here. Rack runs without the file.
+    log_warn "Skipped ${RACK_CONFIG}: ${APPDATA}/rack belongs to another user (Docker made it)."
+    log_warn "To create it, run: sudo chown \"\$(id -u):\$(id -g)\" ${APPDATA}/rack && ./setup.sh"
+elif [[ ! -f "${RACK_CONFIG}" ]]; then
     log_info "Creating default Rack configuration..."
     cat > "${RACK_CONFIG}" << 'EOF'
 title: Homelab
@@ -181,8 +186,21 @@ fi
 
 log_info "Setting ownership to ${PUID}:${PGID}..."
 
-# Only set ownership on directories we created (avoid changing external mounts)
-chown -R "${PUID}:${PGID}" "${APPDATA}" 2>/dev/null || log_warn "Could not set ownership on ${APPDATA} (may need sudo)"
+# Only the folders of containers that run as PUID:PGID. Never chown all of APPDATA:
+# Postgres (DB_DATA_LOCATION) refuses to start if its data folder changes owner,
+# Netdata uses its own user, and Rack, Tailscale and Caddy run as root.
+PUID_DIRS=(
+    "${APPDATA}/plex"
+    "${APPDATA}/qbittorrent"
+    "${APPDATA}/radarr"
+    "${APPDATA}/sonarr"
+    "${APPDATA}/prowlarr"
+    "${APPDATA}/seerr"
+    "${APPDATA}/deploy-hook"
+)
+for dir in "${PUID_DIRS[@]}"; do
+    chown -R "${PUID}:${PGID}" "$dir" 2>/dev/null || log_warn "Could not set ownership on $dir (may need sudo)"
+done
 # Tailscale state holds the node's private key
 chmod 700 "${APPDATA}/tailscale" 2>/dev/null || log_warn "Could not restrict permissions on ${APPDATA}/tailscale"
 
