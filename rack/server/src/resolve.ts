@@ -1,4 +1,4 @@
-import { DEFAULT_GROUP_ORDER, findCatalogEntry } from './catalog.ts';
+import { DEFAULT_GROUP_ORDER, findApp } from './apps/index.ts';
 import type { RackConfig, ServiceOverride } from './config.ts';
 import { derivePorts, type ContainerInfo } from './docker.ts';
 import { titleCase } from './format.ts';
@@ -18,6 +18,8 @@ export interface ResolvedService {
   internal: string | null;
   widget: string | null;
   order: number | null;
+  /** From the app's own module; see App.featured. */
+  featured: boolean;
   container: ContainerInfo | null;
 }
 
@@ -35,27 +37,28 @@ function widgetName(value: string | null): string | null {
 function resolveContainer(container: ContainerInfo, override: ServiceOverride): ResolvedService {
   const id = container.composeService ?? container.name;
   const labels = container.labels;
-  const catalog = findCatalogEntry(id, container.image);
+  const app = findApp(id, container.image);
 
   const ports = derivePorts(
     container.ports,
     firstDefined(override.port, toInt(labels['rack.port'])),
-    catalog?.port ?? null,
+    app?.port ?? null,
   );
   const derivedInternal = ports.privatePort === null ? null : `http://${container.name}:${ports.privatePort}`;
 
   return {
     id,
-    name: firstDefined(override.name, labels['rack.name'], catalog?.name) ?? titleCase(id),
+    name: firstDefined(override.name, labels['rack.name'], app?.name) ?? titleCase(id),
     description: firstDefined(override.description, labels['rack.description']),
-    group: firstDefined(override.group, labels['rack.group'], catalog?.group) ?? 'Other',
-    icon: firstDefined(override.icon, labels['rack.icon'], catalog?.icon) ?? id.toLowerCase(),
+    group: firstDefined(override.group, labels['rack.group'], app?.group) ?? 'Other',
+    icon: firstDefined(override.icon, labels['rack.icon'], app?.icon) ?? id.toLowerCase(),
     url: firstDefined(override.url, labels['rack.url']),
     port: ports.publicPort,
-    path: firstDefined(override.path, labels['rack.path'], catalog?.path),
+    path: firstDefined(override.path, labels['rack.path'], app?.path),
     internal: firstDefined(override.internal, labels['rack.internal'], derivedInternal),
-    widget: widgetName(firstDefined(override.widget, labels['rack.widget'], catalog?.widget)),
+    widget: widgetName(firstDefined(override.widget, labels['rack.widget'], app?.widget ? app.id : null)),
     order: firstDefined(override.order, toInt(labels['rack.order'])),
+    featured: app?.featured === true,
     container,
   };
 }
@@ -73,6 +76,7 @@ function resolveStatic(id: string, override: ServiceOverride): ResolvedService {
     internal: override.internal ?? override.url ?? null,
     widget: widgetName(override.widget ?? null),
     order: override.order ?? null,
+    featured: findApp(id, '')?.featured === true,
     container: null,
   };
 }

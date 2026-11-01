@@ -1,0 +1,16 @@
+[Unit]
+Description=Hourly fallback check for a new homelab release
+
+[Timer]
+# The push doorbell (homelab-deploy.path) normally starts deploys within a minute of a
+# green release. This timer only catches a missed doorbell (tailnet down, hook not
+# configured, server was off), so an hourly poll is enough and stays far below the
+# GitHub API rate limit.
+OnBootSec=2min
+OnUnitActiveSec=1h
+RandomizedDelaySec=30s
+Persistent=true
+Unit=homelab-deploy.service
+
+[Install]
+WantedBy=timers.target

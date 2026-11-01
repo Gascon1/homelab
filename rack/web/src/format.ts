@@ -1,4 +1,4 @@
-import type { Service } from './types';
+import type { Service } from '../../shared/state.ts';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -32,6 +32,8 @@ export function bytes(n: number): string {
   while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
   return `${n >= 100 || i === 0 ? Math.round(n) : n.toFixed(1)} ${u[i]}`;
 }
+
+export const isZero = (v: string) => /^0(\.0+)?(?![\d.,])/.test(v.trim());
 
 export function linkFor(s: Service): string | null {
   if (s.url) return s.url;

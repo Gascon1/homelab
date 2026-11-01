@@ -1,0 +1,108 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  # Reuses the CI workflow; its checks appear as "ci / rack" etc.
+  ci:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  # Check run is named exactly "release" (no `name:` set); the deploy gate keys on it.
+  release:
+    needs: ci
+    # workflow_dispatch can pick any branch: never push :main from another one
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: rack
+          file: rack/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/gascon1/homelab-rack:sha-${{ github.sha }}
+            ghcr.io/gascon1/homelab-rack:main
+          labels: |
+            org.opencontainers.image.source=https://github.com/Gascon1/homelab
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.title=homelab-rack
+            org.opencontainers.image.description=Homelab rack dashboard
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Doorbell: tells the server to deploy now. It carries no authority; deploy.sh
+  # re-checks the `release` check run with GitHub before it changes anything.
+  # A failure here never fails `release`, so the deploy gate is not affected.
+  # Without the secrets (forks, fresh repos) the job passes and the hourly timer deploys.
+  # Tailscale login: workload identity federation (GitHub OIDC), no stored Tailscale secret.
+  # The federated identity must trust only repo:Gascon1/homelab:ref:refs/heads/main, tag:ci.
+  notify:
+    needs: release
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      id-token: write # the OIDC token for Tailscale; nothing else
+    steps:
+      - name: Check that push deploy is configured
+        id: cfg
+        env:
+          TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          TS_AUDIENCE: ${{ secrets.TS_AUDIENCE }}
+          DEPLOY_HOOK_SECRET: ${{ secrets.DEPLOY_HOOK_SECRET }}
+          TS_HOST: ${{ vars.TS_HOST }}
+        run: |
+          if [ -n "$TS_OAUTH_CLIENT_ID" ] && [ -n "$TS_AUDIENCE" ] \
+            && [ -n "$DEPLOY_HOOK_SECRET" ] && [ -n "$TS_HOST" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::push deploy not configured; the timer fallback will deploy"
+          fi
+      - name: Join the tailnet
+        if: steps.cfg.outputs.configured == 'true'
+        uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4.4.0
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          audience: ${{ secrets.TS_AUDIENCE }}
+          tags: tag:ci
+      - name: Ring the doorbell
+        if: steps.cfg.outputs.configured == 'true'
+        env:
+          DEPLOY_HOOK_SECRET: ${{ secrets.DEPLOY_HOOK_SECRET }}
+          TS_HOST: ${{ vars.TS_HOST }}
+        run: |
+          body="$(jq -nc --arg sha "$GITHUB_SHA" --argjson ts "$(date +%s)" '{sha: $sha, ts: $ts}')"
+          sig="$(printf '%s' "$body" | openssl dgst -sha256 -hmac "$DEPLOY_HOOK_SECRET" | sed 's/^.* //')"
+          curl --fail --silent --show-error --max-time 20 --retry 3 --retry-all-errors \
+            -X POST "https://${TS_HOST}:9000/deploy" \
+            -H "Content-Type: application/json" \
+            -H "X-Signature-256: sha256=${sig}" \
+            --data-binary "$body"
+          echo

@@ -1,0 +1,91 @@
+# When you add a service, also update: compose.yml (the service and its port),
+# this file (site block below), docs/remote-access/tailscale-policy.example.hujson
+# (only if the family group should reach it), README.md (services table) and
+# docs/<service>.md. This list is a deliberate allowlist: do not generate it.
+# Single HTTPS entrypoint for the tailnet. See docs/remote-access/.
+# The certificate for {$CADDY_DOMAIN} (a *.ts.net name) comes from tailscaled
+# through /var/run/tailscale/tailscaled.sock; no ACME account or DNS token is needed.
+# Each app keeps its LAN port number so Rack's links work unchanged.
+# The bare address (443) is a static family homepage (caddy/family/); family may reach it.
+# Rack has no login and sees the Docker socket, so it is only on :4000 (admin only by ACL).
+# Never add flaresolverr here: it is an unauthenticated proxy.
+# After editing: docker compose restart caddy
+
+{
+	# Off on purpose: tailnet traffic reaches localhost ports in this network namespace
+	admin off
+}
+
+(security_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+}
+
+# Family homepage: static files only, no proxy, no external requests
+{$CADDY_DOMAIN} {
+	import security_headers
+	header Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; frame-ancestors 'none'"
+	root * /srv/family
+	file_server
+}
+
+# Rack dashboard: admin only (tailnet ACL), never on the bare address
+{$CADDY_DOMAIN}:4000 {
+	import security_headers
+	reverse_proxy rack:4000
+}
+
+{$CADDY_DOMAIN}:5055 {
+	import security_headers
+	reverse_proxy seerr:5055
+}
+
+{$CADDY_DOMAIN}:32400 {
+	import security_headers
+	reverse_proxy plex:32400
+}
+
+{$CADDY_DOMAIN}:8080 {
+	import security_headers
+	reverse_proxy qbittorrent:8080
+}
+
+{$CADDY_DOMAIN}:7878 {
+	import security_headers
+	reverse_proxy radarr:7878
+}
+
+{$CADDY_DOMAIN}:8989 {
+	import security_headers
+	reverse_proxy sonarr:8989
+}
+
+{$CADDY_DOMAIN}:9696 {
+	import security_headers
+	reverse_proxy prowlarr:9696
+}
+
+{$CADDY_DOMAIN}:2283 {
+	import security_headers
+	reverse_proxy immich-server:2283
+}
+
+{$CADDY_DOMAIN}:19999 {
+	import security_headers
+	reverse_proxy netdata:19999
+}
+
+# Push-deploy doorbell for GitHub Actions (tag:ci may reach only this port; see
+# docs/deploy.md). The hook checks the HMAC; family and admins do not need this port.
+{$CADDY_DOMAIN}:9000 {
+	import security_headers
+	reverse_proxy deploy-hook:9000
+}
+
+# Container healthcheck only; returns a constant
+http://:8099 {
+	bind 127.0.0.1
+	respond "ok" 200
+}

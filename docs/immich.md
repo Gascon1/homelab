@@ -89,7 +89,6 @@ The ML container provides:
 Immich is standalone but can integrate with:
 
 - **Plex**: For photo viewing (though Immich's interface is better for photos)
-- **File Browser**: Direct access to uploaded files
 
 ## Data Directories
 

@@ -1,0 +1,48 @@
+// When you add a service, also update: compose.yml, caddy/Caddyfile (the site block that
+// makes it reachable on the tailnet), this file (only if the family group should reach it),
+// README.md and docs/<service>.md. This policy is a deliberate allowlist: do not generate it.
+// Example tailnet policy for this homelab. Paste into admin console > Access controls,
+// then replace the example family address(es). Keep "tagOwners" before creating the auth key.
+// Uses "grants" (the current syntax). The older "acls" syntax still works but is legacy.
+// There is no SSH section on purpose: the Tailscale container does not run Tailscale SSH.
+{
+	"tagOwners": {
+		"tag:homelab": ["autogroup:admin"],
+		// GitHub Actions runner that joins briefly to ring the push-deploy doorbell
+		"tag:ci": ["autogroup:admin"],
+	},
+
+	"groups": {
+		// People you invite who should only see Plex, Immich and Seerr
+		"group:family": ["family-member@example.com"],
+	},
+
+	"grants": [
+		// You (tailnet admins): everything on the server
+		{"src": ["autogroup:admin"], "dst": ["tag:homelab"], "ip": ["*"]},
+
+		// Family: the homepage on 443, plus Plex 32400, Immich 2283, Seerr 5055 (no Rack on 4000, Netdata, *arr, qBittorrent)
+		{"src": ["group:family"], "dst": ["tag:homelab"], "ip": ["tcp:443", "tcp:32400", "tcp:2283", "tcp:5055"]},
+
+		// GitHub Actions (tag:ci, ephemeral): the deploy-hook port 9000 and nothing else
+		{"src": ["tag:ci"], "dst": ["tag:homelab"], "ip": ["tcp:9000"]},
+
+		// Everyone's own devices can still talk to each other
+		{"src": ["autogroup:member"], "dst": ["autogroup:self"], "ip": ["*"]},
+	],
+
+	// Policy tests: the admin console refuses to save a policy that fails them.
+	// Syntax: https://tailscale.com/kb/1337/policy-syntax (see "tests")
+	"tests": [
+		{
+			"src": "family-member@example.com",
+			"accept": ["tag:homelab:443", "tag:homelab:32400", "tag:homelab:2283", "tag:homelab:5055"],
+			"deny": ["tag:homelab:4000", "tag:homelab:8080", "tag:homelab:19999", "tag:homelab:9000"],
+		},
+		{
+			"src": "tag:ci",
+			"accept": ["tag:homelab:9000"],
+			"deny": ["tag:homelab:4000", "tag:homelab:443", "tag:homelab:8080", "tag:homelab:19999", "tag:homelab:22"],
+		},
+	],
+}

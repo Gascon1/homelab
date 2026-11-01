@@ -157,9 +157,26 @@ Rack uses the lowest published TCP port. Add `rack.port=<web UI port>` to the co
 
 - Rack has no login. Anyone who can reach port 4000 can see your dashboard.
 - The Docker socket is mounted so Rack can list containers. Rack only reads from it, but a `:ro` mount does not by itself restrict the Docker API, so a compromised Rack could still control Docker.
-- Do not expose port 4000 beyond your LAN.
+- Do not expose port 4000 beyond your LAN. For remote use, reach Rack over Tailscale at `https://<TS_HOSTNAME>.<TS_TAILNET>:4000` (see [remote access](remote-access/)); its links to the other apps then use HTTPS automatically, because Caddy serves each app on its usual port. Keep Rack admin only: the tailnet policy denies port 4000 to family, and the bare address shows a family homepage instead.
 
 ## Tips
 
 - Use [Dashboard Icons](https://github.com/homarr-labs/dashboard-icons) slugs for `rack.icon`
-- The source lives in `rack/` if you want to change the dashboard
+- The source lives in `rack/` if you want to change the dashboard (see [Changing Rack](#changing-rack))
+
+## Changing Rack
+
+Rack has three parts in `rack/`: `server/` (reads Docker and the apps), `web/` (the dashboard) and `shared/state.ts`, the State contract. `shared/state.ts` is the only definition of the JSON at `/api/state`; both `server/` and `web/` import it by relative path, so change it there and let the type checkers show what else needs updating. It carries meaning, not just data: each widget says whether its app is `busy` or needs `attention`, and each service says whether it is `featured`, so the web never guesses from stat labels or app names. Keep secrets out of it.
+
+### How to Add an App
+
+Each app is one file, `rack/server/src/apps/<app>.ts`, that exports an `App`:
+
+1. Copy a similar file (`sonarr.ts` for an API-key app, `netdata.ts` for one with no credential)
+2. Set `id`, `match` (compose service ids and image names), `name`, `group`, `icon`, `port` and `path`
+3. In `widget.fetch`, call the app and return `stats` (up to three, already formatted), plus `busy` (something is happening now) and `attention` (something needs a look). Add `meter` for a 0 to 1 activity bar, and `lines` for sentences on the top display
+4. Set `featured: true` only if the app should get a larger tile
+5. Add a `demo` block so `RACK_DEMO=1` can play the app without a real upstream
+6. Add the app to `APPS` in `rack/server/src/apps/index.ts`, and a test in `rack/server/test/apps.test.ts`
+
+Check it with `cd rack/server && npm test && npm run typecheck`, and `cd rack/web && npm test && npm run build`.

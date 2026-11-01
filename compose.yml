@@ -1,6 +1,12 @@
 name: homelab
 
 # ---------- DRY helpers ----------
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
 x-ls-common: &ls-common
   restart: unless-stopped
   environment:
@@ -11,11 +17,7 @@ x-ls-common: &ls-common
     - UMASK=002
   networks:
     - homelab
-  logging:
-    driver: json-file
-    options:
-      max-size: '10m'
-      max-file: '3'
+  logging: *logging
 
 # ---------- Services ----------
 services:
@@ -28,7 +30,7 @@ services:
       - TZ=${TZ}
       - PORT=5055 #optional
     ports:
-      - 5055:5055
+      - '${BIND_ADDR:-0.0.0.0}:5055:5055'
     volumes:
       - ${APPDATA}/seerr:/app/config
     healthcheck:
@@ -42,8 +44,10 @@ services:
     restart: unless-stopped
 
   rack:
+    # Pulled from GHCR by the deploy timer (see docs/deploy.md). `build` stays so
+    # `docker compose up -d --build` still builds locally.
+    image: ghcr.io/gascon1/homelab-rack:${RACK_TAG:-main}
     build: ./rack
-    pull_policy: build
     container_name: rack
     environment:
       - TZ=${TZ}
@@ -59,7 +63,7 @@ services:
       - RACK_SEERR_API_KEY=${RACK_SEERR_API_KEY:-}
     networks: [homelab]
     ports:
-      - '4000:4000' # Open at http://<server>:4000
+      - '${BIND_ADDR:-0.0.0.0}:4000:4000' # Open at http://<server>:4000
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ${APPDATA}/rack:/config
@@ -76,17 +80,14 @@ services:
       retries: 3
       start_period: 10s
     restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: '10m'
-        max-file: '3'
+    logging: *logging
 
   plex:
     image: lscr.io/linuxserver/plex:latest
     container_name: plex
     networks: [homelab]
-    # Publish only what you need to reach from LAN
+    # Publish only what you need to reach from LAN. Plex ports are not bound to
+    # BIND_ADDR: clients and DLNA/GDM discovery need them on all interfaces.
     ports:
       - '32400:32400/tcp' # Plex web/API
       # If you actually use DLNA/auto-discovery, also add these:
@@ -101,7 +102,8 @@ services:
       - PGID=${PGID}
       - TZ=${TZ}
       - VERSION=docker
-      - ADVERTISE_IP=${HOST_ADDR}:32400/
+      # Remote URLs (e.g. your tailnet URL) are not set here: linuxserver/plex ignores ADVERTISE_IP.
+      # Set them in Plex > Settings > Network > "Custom server access URLs".
     volumes:
       # Make paths match the *arr containers to avoid path-mapping pain
       - ${DATA_DIR}:/data
@@ -125,7 +127,8 @@ services:
       - ${APPDATA}/qbittorrent:/config
       - ${DATA_DIR}/torrents:/data/torrents
     ports:
-      - '8080:8080'
+      - '${BIND_ADDR:-0.0.0.0}:8080:8080'
+      # Torrent ports stay on all interfaces: peers must reach them
       - '6881:6881'
       - '6881:6881/udp'
     labels:
@@ -141,7 +144,7 @@ services:
       - ${APPDATA}/radarr:/config
       - ${DATA_DIR}:/data
     ports:
-      - '7878:7878'
+      - '${BIND_ADDR:-0.0.0.0}:7878:7878'
     labels:
       - rack.enable=true
 
@@ -153,7 +156,7 @@ services:
       - ${APPDATA}/sonarr:/config
       - ${DATA_DIR}:/data
     ports:
-      - '8989:8989'
+      - '${BIND_ADDR:-0.0.0.0}:8989:8989'
     labels:
       - rack.enable=true
 
@@ -164,7 +167,7 @@ services:
     volumes:
       - ${APPDATA}/prowlarr:/config
     ports:
-      - '9696:9696'
+      - '${BIND_ADDR:-0.0.0.0}:9696:9696'
     labels:
       - rack.enable=true
 
@@ -177,15 +180,20 @@ services:
       - LOG_HTML=${LOG_HTML:-false}
       - CAPTCHA_SOLVER=${CAPTCHA_SOLVER:-none}
       - TZ=${TZ}
-    ports:
-      - '8191:8191'
+    # No published port on purpose: FlareSolverr is an unauthenticated headless-browser
+    # proxy. Prowlarr reaches it at http://flaresolverr:8191 over the homelab network.
     labels:
       - rack.enable=true
 
   immich-server:
     container_name: immich_server
     image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
-    env_file: .env
+    environment:
+      # Only what Immich needs (env_file: .env would leak RACK_* API keys into the container)
+      - TZ=${TZ}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_DATABASE_NAME=${DB_DATABASE_NAME}
     volumes:
       - ${UPLOAD_LOCATION}:/data
       - /etc/localtime:/etc/localtime:ro
@@ -193,7 +201,7 @@ services:
       - redis
       - database
     ports:
-      - '2283:2283' # or "8088:2283" if you prefer that external port
+      - '${BIND_ADDR:-0.0.0.0}:2283:2283' # or "8088:2283" if you prefer that external port
     restart: always
     networks: [homelab]
     labels:
@@ -202,7 +210,8 @@ services:
   immich-machine-learning:
     container_name: immich_machine_learning
     image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}
-    env_file: .env
+    environment:
+      - TZ=${TZ}
     volumes:
       - model-cache:/cache
     restart: always
@@ -238,7 +247,7 @@ services:
     pid: host
     networks: [homelab]
     ports:
-      - '19999:19999/tcp'
+      - '${BIND_ADDR:-0.0.0.0}:19999:19999/tcp'
     restart: unless-stopped
     cap_add:
       - SYS_PTRACE
@@ -246,9 +255,9 @@ services:
     security_opt:
       - apparmor:unconfined
     volumes:
-      - ./appdata/netdata/config:/etc/netdata
-      - ./appdata/netdata/lib:/var/lib/netdata
-      - ./appdata/netdata/cache:/var/cache/netdata
+      - ${APPDATA}/netdata/config:/etc/netdata
+      - ${APPDATA}/netdata/lib:/var/lib/netdata
+      - ${APPDATA}/netdata/cache:/var/cache/netdata
       - /:/host/root:ro,rslave
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
@@ -260,22 +269,111 @@ services:
     labels:
       - rack.enable=true
 
-  filebrowser:
-    <<: *ls-common
-    image: filebrowser/filebrowser:latest
-    container_name: filebrowser
-    # run as same user as your other app data
-    user: '${PUID}:${PGID}'
+  # ---------- Remote access (opt-in: docker compose --profile remote ...) ----------
+  # See docs/remote-access/. Tailnet devices reach only the ports Caddy serves.
+  tailscale:
+    image: tailscale/tailscale:v1.104.4
+    container_name: tailscale
+    profiles: [remote]
+    hostname: ${TS_HOSTNAME:-homelab}
+    networks: [homelab]
+    environment:
+      - TS_AUTHKEY=${TS_AUTHKEY:-}
+      - TS_HOSTNAME=${TS_HOSTNAME:-homelab}
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SOCKET=/var/run/tailscale/tailscaled.sock
+      - TS_USERSPACE=true
+      - TS_AUTH_ONCE=true
+      - TS_ACCEPT_DNS=false
+      - TS_EXTRA_ARGS=${TS_EXTRA_ARGS:-}
     volumes:
-      # Browse the same data tree your media stack uses
-      - ${DATA_DIR}:/srv
-      # Config + DB so settings survive rebuilds
-      - ${APPDATA}/filebrowser/config:/config
-      - ${APPDATA}/filebrowser/database:/database
-    ports:
-      - '8181:80'
+      - ${APPDATA}/tailscale:/var/lib/tailscale
+      - tailscale-socket:/var/run/tailscale
+    # No ports: nothing is published on the host
+    healthcheck:
+      test: ['CMD', 'tailscale', 'status', '--peers=false']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    logging: *logging
+
+  # Push-deploy doorbell: GitHub Actions rings it over the tailnet after `release` is
+  # green. It only verifies an HMAC and touches ${APPDATA}/deploy-hook/trigger; a systemd
+  # path unit then runs scripts/deploy.sh, which does all the checks. See docs/deploy.md.
+  # Own opt-in profile `push` (COMPOSE_PROFILES=remote,push): the hook refuses to start
+  # without DEPLOY_HOOK_SECRET, and in `remote` that would make every `up --wait` (and so
+  # every deploy) fail for owners who have not set push deploy up.
+  deploy-hook:
+    image: python:3.13.18-alpine
+    container_name: deploy-hook
+    profiles: [push]
+    networks: [homelab]
+    # No ports (Caddy serves :9000 on the tailnet), no Docker socket
+    user: '${PUID}:${PGID}'
+    command: ['python', '-u', '/app/hook.py']
+    environment:
+      - DEPLOY_HOOK_SECRET=${DEPLOY_HOOK_SECRET:-}
+    volumes:
+      - ./deploy-hook/hook.py:/app/hook.py:ro
+      - ${APPDATA}/deploy-hook:/trigger
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request as u; u.urlopen('http://127.0.0.1:9000/healthz', timeout=3)
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    logging: *logging
+
+  caddy:
+    image: caddy:2.11.7
+    container_name: caddy
+    profiles: [remote]
+    # Shares the tailscale container's network: same tailnet IP, same homelab network
+    network_mode: service:tailscale
+    depends_on:
+      tailscale:
+        condition: service_healthy
+        restart: true
+      # No depends_on for deploy-hook on purpose: Caddy resolves it per request, so a
+      # crashed or misconfigured hook must not take the other tailnet sites down.
+    environment:
+      - CADDY_DOMAIN=${TS_HOSTNAME:-homelab}.${TS_TAILNET:-tailnet-name.ts.net}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy/family:/srv/family:ro
+      - ${APPDATA}/caddy/data:/data
+      - ${APPDATA}/caddy/config:/config
+      # tailscaled's LocalAPI socket: Caddy gets the *.ts.net certificate through it
+      - tailscale-socket:/var/run/tailscale
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:8099/']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    logging: *logging
+
 volumes:
   model-cache:
+  tailscale-socket:
 
 # ---------- Networks ----------
 networks:
