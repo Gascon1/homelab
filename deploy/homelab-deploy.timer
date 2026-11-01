@@ -1,0 +1,12 @@
+[Unit]
+Description=Check for a new homelab release every few minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=3min
+RandomizedDelaySec=30s
+Persistent=true
+Unit=homelab-deploy.service
+
+[Install]
+WantedBy=timers.target
