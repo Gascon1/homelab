@@ -236,7 +236,7 @@ docker compose up -d
 **Result:** The script ends with no warning. The apps still open at `http://<SERVER-LAN-IP>:<port>` from your LAN.
 
 > **NOTE**
-> Plex (32400) and the torrent port (6881) stay on all interfaces on purpose. The script does not warn about them.
+> Plex (32400) stays on all interfaces on purpose. qBittorrent no longer publishes a torrent port (it runs behind the gluetun VPN). The script does not warn about them.
 
 ---
 
@@ -514,7 +514,7 @@ Keep Tailscale on during these steps.
 sudo ss -tulpn | grep -Ev '127\.0\.0\.1|\[::1\]'
 ```
 
-13. Read the output. Only Plex (32400), the torrent port (6881), the Plex discovery ports and `sshd` can show on 0.0.0.0.
+13. Read the output. Only Plex (32400), the Plex discovery ports and `sshd` can show on 0.0.0.0.
 14. On the server, list the ports that Docker publishes for each container.
 
 ```bash

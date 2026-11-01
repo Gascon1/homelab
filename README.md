@@ -11,12 +11,13 @@ A Docker Compose stack for running a complete home media server with automated d
 | [Sonarr](docs/sonarr.md)            | 8989  | TV series collection manager   |
 | [Prowlarr](docs/prowlarr.md)        | 9696  | Indexer manager for \*arr apps |
 | [qBittorrent](docs/qbittorrent.md)  | 8080  | Torrent download client        |
+| [gluetun](docs/qbittorrent.md)      | 8080  | NordVPN tunnel for qBittorrent |
 | [Seerr](docs/seerr.md)              | 5055  | Media request portal           |
 | [Immich](docs/immich.md)            | 2283  | Photo & video management       |
 | [Rack](docs/rack.md)                | 4000  | Dashboard for all services     |
 | [Netdata](docs/netdata.md)          | 19999 | System monitoring              |
 
-FlareSolverr (8191) is not published on the host; Prowlarr reaches it at `http://flaresolverr:8191` over the `homelab` network. Web UIs are published on `BIND_ADDR` (default all interfaces); Plex and the qBittorrent torrent ports always stay on all interfaces.
+FlareSolverr (8191) is not published on the host; Prowlarr reaches it at `http://flaresolverr:8191` over the `homelab` network. Web UIs are published on `BIND_ADDR` (default all interfaces); Plex always stays on all interfaces. qBittorrent runs inside the gluetun VPN container, so its Web UI is published by gluetun and no torrent port is published.
 
 ## Quick Start
 
@@ -61,6 +62,10 @@ DB_DATA_LOCATION=./appdata/immich/postgres
 DB_PASSWORD=your-secure-password
 DB_USERNAME=postgres
 DB_DATABASE_NAME=immich
+
+# qBittorrent VPN (optional; see docs/qbittorrent.md)
+# The NordVPN WireGuard key goes in ${APPDATA}/gluetun/wireguard_private_key (chmod 600), not here
+VPN_SERVER_COUNTRIES=Canada
 
 # Rack (optional, see docs/rack.md)
 RACK_IMMICH_API_KEY=
