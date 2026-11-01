@@ -47,7 +47,7 @@ The tasks make your homelab safe. Then they let you reach it from outside your h
 | [ ] | 21. Family invites (optional) | Invite family to the tailnet | 10 min |
 | [ ] | 22. Updates | Update the containers each week | 5 min |
 | [ ] | 23. GHCR package | Make the `homelab-rack` image public | 5 min |
-| [ ] | 24. Protect `main` | Set the branch rules. Turn on 2FA | 10 min |
+| [ ] | 24. Protect `main` | Make a ruleset. Turn on 2FA | 10 min |
 | [ ] | 25. Server repository | Put the repository on a clean `main` | 3 min |
 | [ ] | 26. `jq` and `curl` | Install two tools | 2 min |
 | [ ] | 27. Install the deploy timer | Run `deploy/install.sh` | 3 min |
@@ -714,26 +714,37 @@ Do these tasks once. Then the server deploys each change from the `main` branch 
 > **NOTE**
 > If the repository stays private, do Task 37 instead.
 
-### Task 24. Protect the main branch
+### Task 24. Protect the main branch with a ruleset
 
-**Why:** The server runs the code of `main`. A person who can change `main` can run code on your server. Branch rules and 2FA stop this.
+**Why:** The server runs the code of `main`. A person who can change `main` can run code on your server. A ruleset and 2FA stop this.
 
 1. Open the repository on GitHub. Click Settings.
-2. Click Branches. Or click Rules, then Rulesets.
-3. Click Add branch ruleset, or Add classic branch protection rule.
-4. Set the branch name pattern to `main`.
-5. Turn on "Require a pull request before merging".
-6. Turn on "Require status checks to pass".
-7. Add the five checks from the workflow `ci.yml`: `compose`, `shell`, `hook`, `rack` and `image`.
-8. Do not add the check `release`. It runs only after the merge. A pull request cannot get it, so the pull request cannot merge.
-9. Turn on "Block force pushes".
-10. Turn on "Restrict deletions".
-11. Click Create, or click Save changes.
-12. Click your profile picture. Click Settings.
-13. Click Password and authentication.
-14. Turn on two-factor authentication. Use an authenticator app or a passkey.
+2. In the left menu, open Rules. Click Rulesets.
+3. Click New ruleset. Click New branch ruleset.
+4. Type `Protect main` in Ruleset Name.
+5. Set Enforcement status to Active.
+6. Keep the Bypass list empty.
+7. In Target branches, click Add target. Click Include default branch.
+8. Make sure "Restrict deletions" is on.
+9. Make sure "Block force pushes" is on.
+10. Turn on "Require a pull request before merging".
+11. Set "Required approvals" to 0. You cannot approve your own pull request.
+12. Turn on "Require status checks to pass".
+13. Click Add checks. Add the five checks from `ci.yml`: `compose`, `shell`, `hook`, `rack` and `image`.
+14. For each check, choose the source GitHub Actions if GitHub asks.
+15. Do not add the check `release`. It runs only after the merge, so no pull request can get it.
+16. Click Create.
+17. Click your profile picture. Click Settings.
+18. Click Password and authentication.
+19. Turn on two-factor authentication. Use an authenticator app or a passkey.
 
-**Result:** A direct push to `main` is refused. A pull request cannot merge until the checks are green.
+**Result:** The Rulesets page shows `Protect main` as Active. A direct push to `main` is refused. A pull request cannot merge until the five checks are green.
+
+> **NOTE**
+> With an empty bypass list, the ruleset applies to you too. Make all changes with a pull request. To change a rule later, open the ruleset and click Edit.
+
+> **NOTE**
+> If a check is not in the list in step 13, the check has not run yet. Open any pull request, wait for CI, then add the check.
 
 > **WARNING**
 > Do not skip this task. Without it, a stolen GitHub password gives control of your server.
