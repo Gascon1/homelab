@@ -2,14 +2,17 @@
 import hashlib
 import hmac
 import http.client
+import io
 import json
 import os
 import subprocess
 import sys
 import tempfile
 import threading
+import socket
 import time
 import unittest
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -128,7 +131,73 @@ class HookTest(unittest.TestCase):
 
     def test_unwritable_dir_is_500(self):
         self.srv.trigger = os.path.join(self.dir.name, "missing", "trigger")
-        self.assertEqual(self.post()[0], 500)
+        with mock.patch("sys.stderr", new_callable=io.StringIO) as err:
+            body = json.dumps({"sha": SHA, "ts": int(time.time())}).encode()
+            c = http.client.HTTPConnection("127.0.0.1", self.srv.server_port, timeout=5)
+            c.request("POST", "/deploy", body=body, headers={"X-Signature-256": sign(body)})
+            r = c.getresponse()
+            self.assertEqual(r.status, 500)
+            self.assertEqual(r.read(), b"cannot write trigger\n")  # no OS detail in the reply
+            c.close()
+        self.assertIn("No such file or directory", err.getvalue())  # the detail is in the log
+
+    def test_slow_body_times_out(self):
+        # Slowloris: a client that announces a body and never sends it must not hold a thread
+        self.assertTrue(hook.Handler.timeout and hook.Handler.timeout <= 30)
+        with mock.patch.object(hook.Handler, "timeout", 0.3), \
+                mock.patch("sys.stderr", new_callable=io.StringIO) as err:
+            s = socket.create_connection(("127.0.0.1", self.srv.server_port), timeout=5)
+            s.sendall(b"POST /deploy HTTP/1.1\r\nHost: x\r\nContent-Length: 100\r\n\r\n{")
+            self.assertEqual(s.recv(100), b"")  # server closed the connection
+            s.close()
+        self.assertIn("body read timed out", err.getvalue())
+        self.assertNotIn("Traceback", err.getvalue())
+        self.assertFalse(os.path.exists(self.trigger))
+
+    def test_missing_or_negative_length(self):
+        body = json.dumps({"sha": SHA, "ts": int(time.time())}).encode()
+        for cl in (None, "-1", "abc"):
+            s = socket.create_connection(("127.0.0.1", self.srv.server_port), timeout=5)
+            head = b"POST /deploy HTTP/1.1\r\nHost: x\r\nX-Signature-256: " + sign(body).encode() + b"\r\n"
+            if cl is not None:
+                head += b"Content-Length: " + cl.encode() + b"\r\n"
+            s.sendall(head + b"\r\n" + body)
+            status = s.recv(100).split(b" ")[1]
+            s.close()
+            self.assertIn(status, (b"411", b"413"), cl)
+        # chunked without Content-Length is refused, not parsed
+        s = socket.create_connection(("127.0.0.1", self.srv.server_port), timeout=5)
+        s.sendall(b"POST /deploy HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n"
+                  + b"%x\r\n" % len(body) + body + b"\r\n0\r\n\r\n")
+        self.assertEqual(s.recv(100).split(b" ")[1], b"411")
+        s.close()
+        self.assertFalse(os.path.exists(self.trigger))
+
+    def test_huge_ts_is_rejected_not_crashed(self):
+        self.assertEqual(self.post(raw=json.dumps({"sha": SHA, "ts": 10 ** 400}).encode())[0], 401)
+
+    def test_log_escapes_control_chars_and_skips_healthz(self):
+        with mock.patch("sys.stderr", new_callable=io.StringIO) as err:
+            s = socket.create_connection(("127.0.0.1", self.srv.server_port), timeout=5)
+            s.sendall(b"GET /x\x1b[31m\x07 HTTP/1.1\r\nHost: x\r\n\r\n")
+            self.assertEqual(s.recv(100).split(b" ")[1], b"404")
+            s.close()
+            self.assertEqual(self.request(method="GET", path="/healthz"), 200)
+        log = err.getvalue()
+        self.assertNotIn("\x1b", log)
+        self.assertIn("\\x1b[31m\\x07", log)
+        self.assertNotIn("healthz", log)
+        self.assertEqual(len(log.splitlines()), 1)
+
+    def test_concurrent_posts_write_once(self):
+        results = []
+        threads = [threading.Thread(target=lambda: results.append(self.post()[0])) for _ in range(8)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        self.assertEqual(results, [202] * 8)
+        self.assertEqual(os.listdir(self.dir.name), ["trigger"])
 
 
 class StartupTest(unittest.TestCase):
@@ -144,6 +213,12 @@ class StartupTest(unittest.TestCase):
             r = self.run_main(secret)
             self.assertNotEqual(r.returncode, 0, repr(secret))
             self.assertIn("at least 32", r.stderr)
+
+    def test_warns_when_dir_not_writable(self):
+        with mock.patch("sys.stderr", new_callable=io.StringIO) as err:
+            srv = hook.Hook(("127.0.0.1", 0), SECRET, os.path.join(tempfile.gettempdir(), "no-such-dir-x"))
+            srv.server_close()
+        self.assertIn("not writable", err.getvalue())
 
     def test_class_refuses_short_secret(self):
         with self.assertRaises(ValueError):

@@ -319,10 +319,13 @@ services:
   # Push-deploy doorbell: GitHub Actions rings it over the tailnet after `release` is
   # green. It only verifies an HMAC and touches ${APPDATA}/deploy-hook/trigger; a systemd
   # path unit then runs scripts/deploy.sh, which does all the checks. See docs/deploy.md.
+  # Own opt-in profile `push` (COMPOSE_PROFILES=remote,push): the hook refuses to start
+  # without DEPLOY_HOOK_SECRET, and in `remote` that would make every `up --wait` (and so
+  # every deploy) fail for owners who have not set push deploy up.
   deploy-hook:
     image: python:3.13.18-alpine
     container_name: deploy-hook
-    profiles: [remote]
+    profiles: [push]
     networks: [homelab]
     # No ports (Caddy serves :9000 on the tailnet), no Docker socket
     user: '${PUID}:${PGID}'

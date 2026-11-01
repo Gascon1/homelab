@@ -15,6 +15,7 @@ import json
 import os
 import re
 import sys
+import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -23,6 +24,9 @@ MAX_SKEW = 300  # seconds, either direction
 MIN_GAP = 10  # seconds between rewrites of the trigger file
 MIN_SECRET = 32
 SHA_RE = re.compile(r"[0-9a-f]{40}")
+READ_TIMEOUT = 10  # seconds per socket read: a slow or stalled client cannot hold a thread
+# Client-controlled text (method, path) goes to the log: escape control characters
+LOG_SAFE = {c: f"\\x{c:02x}" for c in [*range(0x20), 0x7f]}
 
 
 class Hook(ThreadingHTTPServer):
@@ -35,21 +39,27 @@ class Hook(ThreadingHTTPServer):
         self.secret = secret.encode()
         self.trigger = os.path.join(trigger_dir, "trigger")
         self.last_write = None  # time.monotonic() of the last accepted request
+        self.lock = threading.Lock()  # one writer at a time: the tmp name is shared
+        if not os.access(trigger_dir, os.W_OK):
+            print(f"deploy-hook: WARNING {trigger_dir} is not writable; requests will get 500 "
+                  "(run ./setup.sh, it makes the folder)", file=sys.stderr, flush=True)
 
     def accept(self, sha, ts):
-        now = time.monotonic()
-        if self.last_write is not None and now - self.last_write < MIN_GAP:
-            return
-        tmp = self.trigger + ".tmp"
-        with open(tmp, "w") as f:
-            f.write(f"{sha} {ts}\n")
-        os.replace(tmp, self.trigger)
-        self.last_write = now
+        with self.lock:
+            now = time.monotonic()
+            if self.last_write is not None and now - self.last_write < MIN_GAP:
+                return
+            tmp = self.trigger + ".tmp"
+            with open(tmp, "w") as f:
+                f.write(f"{sha} {ts}\n")
+            os.replace(tmp, self.trigger)
+            self.last_write = now
 
 
 class Handler(BaseHTTPRequestHandler):
     server_version = "deploy-hook"
     sys_version = ""
+    timeout = READ_TIMEOUT
 
     def reply(self, code, note=""):
         self.send_response(code)
@@ -58,7 +68,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Connection", "close")
         self.end_headers()
         self.wfile.write((note + "\n").encode())
-        self.log_message("%s %s -> %d %s", self.command, self.path, code, note)
+        if self.path != "/healthz":  # the healthcheck would bury the real requests
+            self.log_message("%s %s -> %d %s", self.command, self.path, code, note)
 
     def do_GET(self):
         if self.command == "GET" and self.path == "/healthz":
@@ -79,7 +90,11 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(411, "length required")
         if length < 0 or length > MAX_BODY:
             return self.reply(413, "body too large")
-        body = self.rfile.read(length)
+        try:
+            body = self.rfile.read(length)
+        except TimeoutError:
+            self.close_connection = True
+            return self.log_message("%s %s -> body read timed out", self.command, self.path)
         want = "sha256=" + hmac.new(self.server.secret, body, hashlib.sha256).hexdigest()
         if not hmac.compare_digest(want, self.headers.get("X-Signature-256", "")):
             return self.reply(401, "bad signature")
@@ -92,19 +107,20 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply(400, "bad ts")
         except (ValueError, KeyError, TypeError):
             return self.reply(400, "bad body")
-        if abs(time.time() - ts) > MAX_SKEW:
+        if abs(int(time.time()) - ts) > MAX_SKEW:  # ints only: a huge ts cannot overflow a float
             return self.reply(401, "stale ts")
         try:
             self.server.accept(sha, ts)
         except OSError as e:
-            return self.reply(500, f"cannot write trigger: {e.strerror}")
+            self.log_message("cannot write trigger: %s", e.strerror)  # detail in the log, not the reply
+            return self.reply(500, "cannot write trigger")
         self.reply(202, "accepted")
 
     def log_request(self, code="-", size="-"):
         pass  # reply() logs the one line per request
 
     def log_message(self, fmt, *args):  # one line per request, never the secret
-        sys.stderr.write("%s %s\n" % (self.log_date_time_string(), fmt % args))
+        sys.stderr.write("%s %s\n" % (self.log_date_time_string(), (fmt % args).translate(LOG_SAFE)))
 
 
 def main():

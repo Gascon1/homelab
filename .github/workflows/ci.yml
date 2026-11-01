@@ -25,6 +25,8 @@ jobs:
         run: docker compose --env-file .env.example config -q
       - name: Validate compose file (remote profile)
         run: docker compose --env-file .env.example --profile remote config -q
+      - name: Validate compose file (remote and push profiles)
+        run: docker compose --env-file .env.example --profile remote --profile push config -q
 
   shell:
     runs-on: ubuntu-latest

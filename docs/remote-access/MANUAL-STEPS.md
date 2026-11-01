@@ -879,9 +879,9 @@ cat docs/remote-access/tailscale-policy.example.hujson
 
 1. In the admin console, open Settings. Click OAuth clients.
 2. Click Generate OAuth client.
-3. Find the scope for auth keys. The page can name it Auth Keys or Devices Core. Set it to Write.
-4. Select no other scope.
-5. Click Add tags. Choose `tag:ci`.
+3. Find the Keys section. Find the scope Auth Keys (`auth_keys`). Set it to Write.
+4. Select no other scope. Do not select Devices Core.
+5. For the Auth Keys scope, click Add tags. Choose `tag:ci`.
 6. Click Generate client.
 7. Copy the Client ID.
 8. On GitHub, open Settings > Secrets and variables > Actions.
@@ -893,8 +893,8 @@ cat docs/remote-access/tailscale-policy.example.hujson
 
 **Result:** GitHub has the two secrets `TS_OAUTH_CLIENT_ID` and `TS_OAUTH_SECRET`.
 
-> **NOTE**
-> The name of the scope can be different on the page. Choose the smallest Write scope that can make auth keys.
+> **CAUTION**
+> The scope Devices Core can delete and approve all devices on your tailnet. The GitHub action needs only Auth Keys with Write.
 
 ### Task 33. Add the repository variable TS_HOST
 
@@ -913,28 +913,33 @@ cat docs/remote-access/tailscale-policy.example.hujson
 
 **Why:** The `deploy-hook` container receives the request. The path unit starts the deploy when the hook writes its trigger file.
 
-**Before you start:** Do Tasks 30 to 33.
+**Before you start:** Do Tasks 30 to 33. Make sure that `.env` has the secret from Task 30.
 
-1. In the `homelab` folder, restart the `remote` profile.
+> **CAUTION**
+> Do not add the `push` profile before you set `DEPLOY_HOOK_SECRET`. Without the secret, `deploy-hook` does not start. Then each deploy fails and rolls back.
+
+1. Open `.env`. Find the line `COMPOSE_PROFILES=remote`.
+2. Change it to `COMPOSE_PROFILES=remote,push`. Save the file.
+3. In the `homelab` folder, start the containers.
 
 ```bash
-docker compose --profile remote up -d
+docker compose up -d
 ```
 
-2. Make sure `deploy-hook` is healthy.
+4. Make sure `deploy-hook` is healthy.
 
 ```bash
-docker compose --profile remote ps deploy-hook
+docker compose ps deploy-hook
 ```
 
-3. Run the install script again.
+5. Run the install script again.
 
 ```bash
 ./deploy/install.sh
 ```
 
-4. Type your password when `sudo` asks for it.
-5. Make sure the path unit is active.
+6. Type your password when `sudo` asks for it.
+7. Make sure the path unit is active.
 
 ```bash
 systemctl status homelab-deploy.path
@@ -943,7 +948,7 @@ systemctl status homelab-deploy.path
 **Result:** `deploy-hook` is healthy. The path unit shows "active (waiting)".
 
 > **NOTE**
-> If `deploy-hook` stops with a permission error, run `./setup.sh` again. It makes the folder for the trigger file.
+> If `docker logs deploy-hook` says "not writable", run `./setup.sh` again. It makes the folder for the trigger file and gives it to your user. Then run `docker compose up -d --force-recreate deploy-hook`.
 
 ### Task 35. Test with a small pull request
 
@@ -1123,19 +1128,19 @@ git fetch origin main
 
 Use these steps to remove remote access. Your LAN access does not change.
 
-1. Stop the two containers.
+1. Stop the containers.
 
 ```bash
-docker compose --profile remote stop caddy tailscale
+docker compose --profile remote --profile push stop caddy tailscale deploy-hook
 ```
 
-2. Delete the two containers.
+2. Delete the containers.
 
 ```bash
-docker compose --profile remote rm -f caddy tailscale
+docker compose --profile remote --profile push rm -f caddy tailscale deploy-hook
 ```
 
-3. Open `.env`. Add the `#` again before `COMPOSE_PROFILES=remote`.
+3. Open `.env`. Add the `#` again before `COMPOSE_PROFILES`.
 4. In `.env`, delete the value of `TS_AUTHKEY`.
 5. In Plex, open Settings > Network. Delete the tailnet address from "Custom server access URLs".
 6. In the admin console, open the Machines page. Delete the machine `homelab`.

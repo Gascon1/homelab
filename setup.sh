@@ -95,6 +95,7 @@ APPDATA_DIRS=(
     "${APPDATA}/tailscale"
     "${APPDATA}/caddy/data"
     "${APPDATA}/caddy/config"
+    # Push-deploy doorbell (only used with the 'push' compose profile)
     "${APPDATA}/deploy-hook"
 
     # Immich database

@@ -53,7 +53,9 @@ case "$APPDATA" in
     /*) ;;
     *) APPDATA="${REPO_DIR}/${APPDATA#./}" ;;
 esac
-APPDATA="${APPDATA%/}"
+# systemd refuses a path that is not normalized (.., //, trailing /) and then
+# leaves the path unit with no path, so normalize it (the folder can be missing).
+APPDATA="$(realpath -m -- "$APPDATA")"
 
 # The paths go into sed replacements: reject characters that would break it.
 for v in "$REPO_DIR" "$DEPLOY_USER" "$USER_HOME" "$APPDATA"; do
