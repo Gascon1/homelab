@@ -46,6 +46,16 @@ The tasks make your homelab safe. Then they let you reach it from outside your h
 | [ ] | 20. Plex for family without Tailscale (optional) | Use Plex Remote Access | 10 min |
 | [ ] | 21. Family invites (optional) | Invite family to the tailnet | 10 min |
 | [ ] | 22. Updates | Update the containers each week | 5 min |
+| [ ] | 23. GHCR package | Make the `homelab-rack` image public | 5 min |
+| [ ] | 24. Protect `main` | Set the branch rules. Turn on 2FA | 10 min |
+| [ ] | 25. Server repository | Put the repository on a clean `main` | 3 min |
+| [ ] | 26. `jq` and `curl` | Install two tools | 2 min |
+| [ ] | 27. Install the deploy timer | Run `deploy/install.sh` | 3 min |
+| [ ] | 28. Dry run | Test the deploy script with no change | 3 min |
+| [ ] | 29. Examine the timer and logs | Check that the timer runs | 3 min |
+| [ ] | 30. Test with a small pull request | Make sure an automatic deploy works | 15 min |
+| [ ] | 31. Pause and roll back | Stop the timer. Go back to an old version | 5 min |
+| [ ] | 32. If the repository is private (optional) | Set the token, deploy key and build mode | 20 min |
 
 ---
 
@@ -633,6 +643,305 @@ docker compose --profile remote pull && docker compose --profile remote up -d --
 4. Change the tags in `compose.yml` by hand. The tags are now `tailscale/tailscale:v1.104.4` and `caddy:2.11.7`.
 
 **Result:** `docker compose --profile remote ps` shows the status "running" for all containers.
+
+---
+
+## Part D: Automatic deploys
+
+Do these tasks once. Then the server deploys each change from the `main` branch by itself. Read [docs/deploy.md](../deploy.md) first.
+
+> **NOTE**
+> The server asks GitHub for new releases. GitHub does not connect to your home. You open no port and you give GitHub no key.
+
+### Task 23. Make the GHCR package public
+
+**Why:** The server downloads the Rack image with no login. A private package needs a token on the server.
+
+**Before you start:** Wait for the first run of the `Release` workflow. It must finish with a green mark. The package does not exist before this run.
+
+1. Open `https://github.com` in a browser. Sign in.
+2. Click your profile picture. Click Your profile.
+3. Click the Packages tab.
+4. Click `homelab-rack`.
+5. Click Package settings.
+6. Find the Danger Zone section. Click Change visibility.
+7. Select Public.
+8. Type the name of the package to confirm.
+9. Click the confirm button.
+
+**Result:** The package page shows the label "Public".
+
+> **NOTE**
+> If the repository stays private, do Task 32 instead.
+
+### Task 24. Protect the main branch
+
+**Why:** The server runs the code of `main`. A person who can change `main` can run code on your server. Branch rules and 2FA stop this.
+
+1. Open the repository on GitHub. Click Settings.
+2. Click Branches. Or click Rules, then Rulesets.
+3. Click Add branch ruleset, or Add classic branch protection rule.
+4. Set the branch name pattern to `main`.
+5. Turn on "Require a pull request before merging".
+6. Turn on "Require status checks to pass".
+7. Add the checks from the workflow `ci.yml`. Their names start with `CI /`.
+8. Add the check `release`.
+9. Turn on "Block force pushes".
+10. Turn on "Restrict deletions".
+11. Click Create, or click Save changes.
+12. Click your profile picture. Click Settings.
+13. Click Password and authentication.
+14. Turn on two-factor authentication. Use an authenticator app or a passkey.
+
+**Result:** A direct push to `main` is refused. A pull request cannot merge until the checks are green.
+
+> **WARNING**
+> Do not skip this task. Without it, a stolen GitHub password gives control of your server.
+
+### Task 25. Put the repository on a clean main
+
+**Why:** The deploy script refuses to run when the repository has local changes. It also refuses to run on another branch.
+
+1. On the server, open a terminal in the `homelab` folder.
+2. Switch to the `main` branch.
+
+```bash
+git checkout main
+```
+
+3. Get the newest code.
+
+```bash
+git pull
+```
+
+4. Examine the status.
+
+```bash
+git status
+```
+
+5. Make sure the output says "nothing to commit, working tree clean".
+6. If the output lists changed files, keep or discard them with `git stash` before you continue.
+
+**Result:** `git status` shows `On branch main` and "working tree clean".
+
+> **NOTE**
+> The files `.env` and `appdata` are not in Git. The deploy script does not change them.
+
+### Task 26. Install jq and curl
+
+**Why:** The deploy script uses `curl` to ask GitHub. It uses `jq` to read the answer.
+
+1. Install the two tools.
+
+```bash
+sudo apt install jq curl
+```
+
+2. Make sure that both tools work.
+
+```bash
+jq --version && curl --version | head -n 1
+```
+
+**Result:** The terminal shows a version for `jq` and for `curl`.
+
+### Task 27. Install the deploy timer
+
+**Why:** The timer starts the deploy script every 3 minutes.
+
+**Before you start:** Make sure your user is in the `docker` group. Type `id` to see your groups.
+
+1. In the `homelab` folder, run the install script.
+
+```bash
+./deploy/install.sh
+```
+
+2. Type your password when `sudo` asks for it.
+3. Read the last line of the output.
+
+**Result:** The output says "Installed". The file `deploy/deploy.env` exists.
+
+> **NOTE**
+> The script is safe to run again. To remove the timer, type `./deploy/install.sh --uninstall`.
+
+### Task 28. Do a dry run
+
+**Why:** A dry run shows what the script would do. It changes nothing.
+
+1. Type the command.
+
+```bash
+./scripts/deploy.sh --dry-run
+```
+
+2. Read the output. Each line has a time and a short commit ID.
+3. Make sure the output has no line with "ERROR".
+
+**Result:** The output says "up to date". Or it lists the steps that the script would do.
+
+> **NOTE**
+> A line with "refusing" means the repository has local changes or is not on `main`. Do Task 25 again.
+
+### Task 29. Examine the timer and the logs
+
+**Why:** You must know that the timer runs. You must know where to read the logs.
+
+1. Show the timer.
+
+```bash
+systemctl list-timers homelab-deploy.timer
+```
+
+2. Make sure the NEXT column shows a time in the next few minutes.
+3. Show the last 50 log lines.
+
+```bash
+journalctl -u homelab-deploy -n 50
+```
+
+4. Make sure each line shows a time and a commit ID.
+
+**Result:** The timer is active. The log has lines from the deploy script.
+
+### Task 30. Test with a small pull request
+
+**Why:** This test shows that the full path works, from GitHub to your server.
+
+1. On GitHub, make a small pull request. Change one line in a document.
+2. Wait for the `CI` checks to turn green.
+3. Merge the pull request.
+4. Wait for the `Release` workflow to finish with a green mark.
+5. Wait 5 minutes.
+6. On the server, read the logs.
+
+```bash
+journalctl -u homelab-deploy -n 50
+```
+
+7. Make sure the log has a line with "DEPLOYED".
+8. Open Rack at `http://<SERVER-LAN-IP>:4000`.
+9. Make sure Rack loads with no error.
+
+**Result:** The log shows "DEPLOYED" and the new commit ID. `git log -1` on the server shows the same commit.
+
+> **NOTE**
+> The log line "gate pending" is normal. It means the `Release` workflow is not finished. The timer tries again.
+
+### Task 31. Pause and roll back
+
+**Why:** You must be able to stop automatic deploys. You must be able to go back to an old version.
+
+**To pause:**
+
+1. Stop the timer.
+
+```bash
+sudo systemctl stop homelab-deploy.timer
+```
+
+2. To start the timer again, type this command.
+
+```bash
+sudo systemctl start homelab-deploy.timer
+```
+
+**To roll back by hand:**
+
+1. Pause the timer. Use the command above.
+2. Find the commit ID of the good version.
+
+```bash
+git log --oneline -n 10
+```
+
+3. Go back to that commit. Replace `<GOOD-SHA>` with the full commit ID.
+
+```bash
+git reset --hard <GOOD-SHA>
+```
+
+4. Set the image tag. Replace `<GOOD-SHA>` with the full commit ID.
+
+```bash
+RACK_TAG=sha-<GOOD-SHA> docker compose up -d --wait
+```
+
+5. Make sure Rack works.
+6. Start the timer again only after a fix is on `main`.
+
+**Result:** The timer is stopped. Rack runs the good version.
+
+> **WARNING**
+> After step 3, the repository is behind `origin/main`. If you start the timer, it deploys `main` again. Fix `main` first.
+
+> **NOTE**
+> The script rolls back by itself when the new version does not start. It then ignores that commit until `main` changes.
+
+### Task 32. If the repository is private (optional)
+
+**Why:** Do this task only if you make the repository private. A private repository needs credentials for three things.
+
+**A. The release check**
+
+1. On GitHub, click your profile picture. Click Settings.
+2. Click Developer settings. Click Personal access tokens. Click Fine-grained tokens.
+3. Click Generate new token.
+4. Select only the `homelab` repository.
+5. Give read-only access to Checks, Contents and Metadata.
+6. Click Generate token. Copy the token.
+7. On the server, open `deploy/deploy.env` in a text editor.
+8. Add the line `GITHUB_TOKEN=` followed by the token.
+9. Save the file.
+
+**B. The code download**
+
+1. On the server, make an SSH key for deploys only.
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/homelab-deploy -N ""
+```
+
+2. Show the public key.
+
+```bash
+cat ~/.ssh/homelab-deploy.pub
+```
+
+3. On GitHub, open the repository. Click Settings, then Deploy keys, then Add deploy key.
+4. Paste the public key. Do not select "Allow write access".
+5. Click Add key.
+6. Tell Git to use the key for this repository.
+
+```bash
+git config core.sshCommand "ssh -i ~/.ssh/homelab-deploy -o IdentitiesOnly=yes"
+```
+
+7. Change the remote to SSH.
+
+```bash
+git remote set-url origin git@github.com:Gascon1/homelab.git
+```
+
+8. Connect once by hand to accept the GitHub host key.
+
+```bash
+git fetch origin main
+```
+
+**C. The image**
+
+1. Open `deploy/deploy.env` in a text editor.
+2. Set `RACK_SOURCE=build`.
+3. Save the file.
+4. Run the dry run from Task 28.
+
+**Result:** The dry run shows no "404" and no "fetch failed" line. The server builds the Rack image on its own.
+
+> **NOTE**
+> A build on the server takes a few minutes. The token must have read-only access. Never use a token that can write.
 
 ---
 
