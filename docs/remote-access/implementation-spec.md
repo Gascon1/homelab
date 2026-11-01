@@ -18,7 +18,7 @@ Audience: the implementer agent. Follow it literally. Do not commit or push. Con
 | Entrypoint | **Caddy** container with `network_mode: service:tailscale` | It shares the tailnet IP and the `homelab` network (so it can reach `sonarr:8989` etc.). |
 | TLS default | Tailscale-issued cert for `${TS_HOSTNAME}.${TS_TAILNET}` (a `*.ts.net` name). Caddy ≥2.5 fetches it automatically from tailscaled's LocalAPI socket at `/var/run/tailscale/tailscaled.sock`, which is shared between the containers through a named volume. | No domain, no DNS API token, no custom Caddy build. |
 | TLS alternative | DNS-01 with a real domain: documented in Appendix A, **not implemented** | It needs a custom Caddy build and a DNS provider token. |
-| Hostname scheme | **One hostname, one port per service, same port numbers as the LAN** (`https://homelab.<tailnet>.ts.net:8989` → sonarr). Rack on 443 **and** 4000. | Tailscale certs cover exactly one name per node (no wildcard). Rack builds links as `location.protocol//location.hostname:<published port>` (`rack/web/src/format.ts:36-40`), so mirroring the ports makes every Rack link work over HTTPS with **no Rack code change**. It also lets Tailscale ACLs restrict per service by port. |
+| Hostname scheme | **One hostname, one port per service, same port numbers as the LAN** (`https://homelab.<tailnet>.ts.net:8989` → sonarr). Superseded 2026-11-01: 443 is now a static family homepage and Rack is on 4000 only. | Tailscale certs cover exactly one name per node (no wildcard). Rack builds links as `location.protocol//location.hostname:<published port>` (`rack/web/src/format.ts:36-40`), so mirroring the ports makes every Rack link work over HTTPS with **no Rack code change**. It also lets Tailscale ACLs restrict per service by port. |
 | Forward-auth | **None.** Tailnet membership plus ACLs (admin-only for Rack and Netdata). FlareSolverr is never proxied. | The owner asked to keep it simple, and the only people on the tailnet are the owner and invited family limited by ACL. |
 | Image pinning | Pin the **new** images exactly: `tailscale/tailscale:v1.104.4`, `caddy:2.11.7` (both verified on Docker Hub on 2026-11-01: `v1.104.4` is the current `stable`; `2.11.7` is the newest 2.x tag). **Do not change existing app image tags.** | The policy is documented in the report (HL-09). |
 | Caddy admin API | `admin off` | In userspace mode, tailnet connections are forwarded to `localhost:<port>`, so a localhost-only admin API would be reachable from the tailnet. Reload with `docker compose restart caddy`. |
@@ -151,8 +151,8 @@ Create exactly:
 	}
 }
 
-# Rack dashboard (also on :4000 so its own link works)
-{$CADDY_DOMAIN}, {$CADDY_DOMAIN}:4000 {
+# Rack dashboard: admin only. (Superseded: 443 now serves the static family page, see caddy/Caddyfile.)
+{$CADDY_DOMAIN}:4000 {
 	import common
 	reverse_proxy rack:4000
 }
@@ -342,7 +342,7 @@ The owner pastes this into the Tailscale admin console (Access controls). Create
   ```markdown
   ## Remote Access
 
-  Remote access goes through [Tailscale](https://tailscale.com) (a private WireGuard network), not open router ports. Two opt-in containers do this: `tailscale` joins your tailnet and `caddy` serves every app over HTTPS at `https://<TS_HOSTNAME>.<TS_TAILNET>:<usual port>` (Rack is on the plain `https://<TS_HOSTNAME>.<TS_TAILNET>`). FlareSolverr is never exposed.
+  Remote access goes through [Tailscale](https://tailscale.com) (a private WireGuard network), not open router ports. Two opt-in containers do this: `tailscale` joins your tailnet and `caddy` serves every app over HTTPS at `https://<TS_HOSTNAME>.<TS_TAILNET>:<usual port>` (the plain `https://<TS_HOSTNAME>.<TS_TAILNET>` is a family homepage; Rack is on `:4000`). FlareSolverr is never exposed.
 
   Set the `TS_*` variables in `.env`, then:
 
@@ -367,7 +367,7 @@ The owner pastes this into the Tailscale admin console (Access controls). Create
 - **`docs/rack.md` "Security"**: replace `- Do not expose port 4000 beyond your LAN.` with:
 
   ```markdown
-  - Do not expose port 4000 beyond your LAN. For remote use, reach Rack over Tailscale at `https://<TS_HOSTNAME>.<TS_TAILNET>/` (see [remote access](remote-access/)); its links to the other apps then use HTTPS automatically, because Caddy serves each app on its usual port.
+  - Do not expose port 4000 beyond your LAN. For remote use, reach Rack over Tailscale at `https://<TS_HOSTNAME>.<TS_TAILNET>:4000` (see [remote access](remote-access/)); its links to the other apps then use HTTPS automatically, because Caddy serves each app on its usual port.
   ```
 
 - **`docs/netdata.md`**: in "Tips", replace `- Consider connecting to Netdata Cloud for remote access` with `- For remote access use the Tailscale setup in [remote access](remote-access/) instead of Netdata Cloud`. In "Initial Setup", replace `2. No login required by default (configure if exposing externally)` with `2. No login. Never expose port 19999 to the internet; over Tailscale, limit it to your own devices (see the example policy in remote-access/)`.
@@ -448,7 +448,7 @@ Rack tests: **not required** because no Rack code changes. If you do touch `rack
 9. **Start it:** `./setup.sh && docker compose --profile remote up -d`. Check with `docker compose logs tailscale caddy` that Caddy says it obtained a certificate for `homelab.tailXXXX.ts.net`.
 10. **Remove the key:** delete the `TS_AUTHKEY` value from `.env`. The node stays logged in, and tagged nodes do not expire.
 11. **Admin console:** under Settings, turn on **Device approval**. Optionally turn on Tailnet Lock.
-12. **Your devices:** install the Tailscale app on your phone and laptop, sign in, and open `https://homelab.tailXXXX.ts.net` (Rack). Rack's links open each app.
+12. **Your devices:** install the Tailscale app on your phone and laptop, sign in, and open `https://homelab.tailXXXX.ts.net:4000` (Rack). Rack's links open each app.
 13. **Phone apps** (Tailscale VPN on):
     - Immich app: server URL `https://homelab.tailXXXX.ts.net:2283`. Turn on background backup.
     - Plex app: sign in normally.

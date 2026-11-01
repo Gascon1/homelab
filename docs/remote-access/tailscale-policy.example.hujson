@@ -19,8 +19,8 @@
 		// You (tailnet admins): everything on the server
 		{"src": ["autogroup:admin"], "dst": ["tag:homelab"], "ip": ["*"]},
 
-		// Family: Plex 32400, Immich 2283, Seerr 5055 only (no Rack, Netdata, *arr, qBittorrent, File Browser)
-		{"src": ["group:family"], "dst": ["tag:homelab"], "ip": ["tcp:32400", "tcp:2283", "tcp:5055"]},
+		// Family: the homepage on 443, plus Plex 32400, Immich 2283, Seerr 5055 (no Rack on 4000, Netdata, *arr, qBittorrent, File Browser)
+		{"src": ["group:family"], "dst": ["tag:homelab"], "ip": ["tcp:443", "tcp:32400", "tcp:2283", "tcp:5055"]},
 
 		// Everyone's own devices can still talk to each other
 		{"src": ["autogroup:member"], "dst": ["autogroup:self"], "ip": ["*"]},
@@ -31,8 +31,8 @@
 	"tests": [
 		{
 			"src": "family-member@example.com",
-			"accept": ["tag:homelab:32400", "tag:homelab:2283", "tag:homelab:5055"],
-			"deny": ["tag:homelab:4000", "tag:homelab:443", "tag:homelab:8080", "tag:homelab:19999"],
+			"accept": ["tag:homelab:443", "tag:homelab:32400", "tag:homelab:2283", "tag:homelab:5055"],
+			"deny": ["tag:homelab:4000", "tag:homelab:8080", "tag:homelab:19999"],
 		},
 	],
 }

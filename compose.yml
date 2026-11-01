@@ -328,6 +328,7 @@ services:
       - CADDY_DOMAIN=${TS_HOSTNAME:-homelab}.${TS_TAILNET:-tailnet-name.ts.net}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy/family:/srv/family:ro
       - ${APPDATA}/caddy/data:/data
       - ${APPDATA}/caddy/config:/config
       # tailscaled's LocalAPI socket: Caddy gets the *.ts.net certificate through it
