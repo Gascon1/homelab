@@ -91,18 +91,7 @@ ${UPLOAD_LOCATION}/       # Photo and video uploads
 
 ### 1. Storage Configuration
 
-Mount your storage drives persistently:
-
-```bash
-# Find drive UUIDs
-sudo blkid
-
-# Add to /etc/fstab
-echo "UUID=<your-uuid>  /srv/data  ext4  defaults  0  2" | sudo tee -a /etc/fstab
-
-# Mount
-sudo mount -a
-```
+`DATA_DIR` is a mergerfs pool of one ext4 filesystem per HDD. For how the pool places files and how to add a disk, see [docs/storage.md](docs/storage.md).
 
 ### 2. Initial Directory Setup
 
