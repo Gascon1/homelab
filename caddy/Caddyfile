@@ -77,11 +77,6 @@
 	reverse_proxy netdata:19999
 }
 
-{$CADDY_DOMAIN}:8181 {
-	import security_headers
-	reverse_proxy filebrowser:80
-}
-
 # Container healthcheck only; returns a constant
 http://:8099 {
 	bind 127.0.0.1

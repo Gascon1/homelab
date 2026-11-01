@@ -101,9 +101,9 @@ test('derivePorts: lowest published TCP port by default, ignoring UDP and IPv6 d
 });
 
 test('derivePorts: explicit port, app default, and nothing published', () => {
-  const ports = [tcp(6881, 6881), tcp(8181, 80)];
-  assert.deepEqual(derivePorts(ports, 8181, null), { publicPort: 8181, privatePort: 80 });
-  assert.deepEqual(derivePorts(ports, null, 80), { publicPort: 8181, privatePort: 80 });
+  const ports = [tcp(6881, 6881), tcp(8282, 80)];
+  assert.deepEqual(derivePorts(ports, 8282, null), { publicPort: 8282, privatePort: 80 });
+  assert.deepEqual(derivePorts(ports, null, 80), { publicPort: 8282, privatePort: 80 });
   assert.deepEqual(derivePorts(ports, 7000, null), { publicPort: 7000, privatePort: 7000 });
   assert.deepEqual(derivePorts([{ PrivatePort: 3000, Type: 'tcp' }], null, null), { publicPort: null, privatePort: 3000 });
   assert.deepEqual(derivePorts([], null, null), { publicPort: null, privatePort: null });

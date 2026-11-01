@@ -37,12 +37,11 @@ test('the catalog finds an app by compose service id or by image name', () => {
   assert.equal(findApp('whatever', 'ghcr.io/immich-app/immich-server:release')?.name, 'Immich');
   assert.equal(findApp('requests', 'fallenbagel/jellyseerr:latest')?.id, 'seerr');
   assert.equal(findApp('mystery', 'example/app:1'), null);
-  assert.equal(findApp('filebrowser', 'x:1')?.widget, null);
 });
 
 test('every app has an identity the dashboard can group and draw', () => {
   const groups = new Set(APPS.map((a) => a.group));
-  assert.deepEqual([...groups].sort(), ['Downloads', 'Files', 'Media', 'Photos', 'System']);
+  assert.deepEqual([...groups].sort(), ['Downloads', 'Media', 'Photos', 'System']);
   for (const app of APPS) {
     assert.ok(app.name && app.icon && app.match.length > 0, app.id);
     assert.ok(app.port && app.port > 0, app.id);
@@ -55,7 +54,6 @@ test('every app has an identity the dashboard can group and draw', () => {
 test('widget types resolve to apps that can fetch; apps without a widget do not resolve', () => {
   assert.equal(appForWidget('sonarr')?.name, 'Sonarr');
   assert.equal(appForWidget('immich')?.name, 'Immich');
-  assert.equal(appForWidget('filebrowser'), null);
   assert.equal(appForWidget('nope'), null);
 });
 
@@ -93,7 +91,7 @@ test('credential files that are empty, malformed or missing give no credential',
   for (const id of ['sonarr', 'seerr', 'plex', 'radarr']) assert.equal(find(id), null, id);
 });
 
-test('immich only reads its env var; flaresolverr, netdata and file browser need no credential', () => {
+test('immich only reads its env var; flaresolverr and netdata need no credential', () => {
   const find = (vars: Record<string, string>, id: string) => envCredentials({ vars, appdataDir: '/nonexistent' })(byId(id));
   assert.equal(find({}, 'immich'), null);
   assert.equal(find({ RACK_IMMICH_API_KEY: 'k' }, 'immich'), 'k');
@@ -153,11 +151,6 @@ test('key-less apps never blame credentials for a 403', async () => {
       assert.equal(out.widget.error, `${byId(id).name} answered with an error (HTTP 403)`);
     });
   }
-});
-
-test('an app with no widget reports that instead of throwing', async () => {
-  const out = await runner().run(byId('filebrowser'), target(byId('filebrowser'), 'http://127.0.0.1:1'));
-  assert.equal(out.widget.ok, false);
 });
 
 // ---- widgets ------------------------------------------------------------------------------------

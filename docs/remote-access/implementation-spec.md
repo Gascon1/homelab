@@ -34,7 +34,7 @@ Audience: the implementer agent. Follow it literally. Do not commit or push. Con
       # Set them in Plex > Settings > Network > "Custom server access URLs".
 ```
 
-**(b) New services.** Insert these two services **after the `filebrowser` service and before the top-level `volumes:` key**, keeping 2-space indentation under `services:`:
+**(b) New services.** Insert these two services **after the `netdata` service and before the top-level `volumes:` key**, keeping 2-space indentation under `services:`:
 
 ```yaml
   # ---------- Remote access (opt-in: docker compose --profile remote ...) ----------
@@ -197,11 +197,6 @@ Create exactly:
 	reverse_proxy netdata:19999
 }
 
-{$CADDY_DOMAIN}:8181 {
-	import common
-	reverse_proxy filebrowser:80
-}
-
 # Container healthcheck only; returns a constant
 http://:8099 {
 	bind 127.0.0.1
@@ -284,7 +279,7 @@ with
     chmod 600 "${SCRIPT_DIR}/.env" 2>/dev/null || log_warn "Could not restrict permissions on .env"
 ```
 
-**(c)** In the `APPDATA_DIRS=(` array, after the `"${APPDATA}/filebrowser/database"` line, add:
+**(c)** In the `APPDATA_DIRS=(` array, after the Monitoring entries (netdata), add:
 
 ```bash
 
@@ -326,7 +321,7 @@ The owner pastes this into the Tailscale admin console (Access controls). Create
 		// You (tailnet admins): everything on the server
 		{"src": ["autogroup:admin"], "dst": ["tag:homelab"], "ip": ["*"]},
 
-		// Family: Plex 32400, Immich 2283, Seerr 5055 only (no Rack, Netdata, *arr, qBittorrent, File Browser)
+		// Family: Plex 32400, Immich 2283, Seerr 5055 only (no Rack, Netdata, *arr, qBittorrent)
 		{"src": ["group:family"], "dst": ["tag:homelab"], "ip": ["tcp:32400", "tcp:2283", "tcp:5055"]},
 
 		// Everyone's own devices can still talk to each other
@@ -429,7 +424,7 @@ Rack tests: **not required** because no Rack code changes. If you do touch `rack
 ## 4. Manual steps for the owner (in order; the orchestrator will rewrite these)
 
 1. **Fix logins first, before anything goes remote.**
-   1. File Browser: log in (password from `docker logs filebrowser` on first start, or `admin`/`admin` on old installs), change it to a strong unique one, and create a normal user for daily use.
+   1. File Browser: *Resolved 2026-11-01: File Browser removed, nothing to do.*
    2. qBittorrent: Tools → Options → Web UI. Set a strong password. Make sure both "Bypass authentication for clients on localhost" and "...in whitelisted IP subnets" are **off**. Turn on "Enable reverse proxy support" with trusted proxies `172.16.0.0/12`. Put the new login in `.env` as `RACK_QBITTORRENT_*`.
    3. Radarr, Sonarr and Prowlarr: Settings → General → Security. Authentication = Forms, Authentication Required = **Enabled** (not "Disabled for Local Addresses"), strong unique password.
    4. Immich: if `DB_PASSWORD` is still the example value, change it **before first start** (changing it later needs a Postgres password change too). Turn on 2FA/OAuth if you want.

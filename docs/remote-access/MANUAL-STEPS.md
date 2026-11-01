@@ -24,7 +24,7 @@ The tasks make your homelab safe. Then they let you reach it from outside your h
 
 | Done | Task | What it does | Time |
 | --- | --- | --- | --- |
-| [ ] | 1. File Browser | Change the default password | 5 min |
+| [ ] | 1. File Browser | Remove the old container | 5 min |
 | [ ] | 2. qBittorrent | Change the password. Set the safe options | 10 min |
 | [ ] | 3. Radarr, Sonarr, Prowlarr | Set Authentication Required to Enabled | 10 min |
 | [ ] | 4. Immich and Seerr | Check the database password and sign-in | 5 min |
@@ -54,29 +54,41 @@ The tasks make your homelab safe. Then they let you reach it from outside your h
 Do Tasks 1 to 6 before you start anything remote.
 
 > **WARNING**
-> Do not start the `remote` profile before Tasks 1, 2 and 3 are done. Without these tasks, a person on your tailnet can use the apps with no password. This can cause data loss.
+> Do not start the `remote` profile before Tasks 2 and 3 are done. Without these tasks, a person on your tailnet can use the apps with no password. This can cause data loss.
 
-### Task 1. Change the File Browser password
+### Task 1. Remove File Browser
 
-**Why:** File Browser can read and delete all your files. The default password is weak.
+**Why:** The app is not used, and it could read and delete all files.
 
-1. Open `http://<SERVER-LAN-IP>:8181` in a browser.
-2. Sign in as `admin`.
-3. Use the password `admin`. On a new install, use the password from this command instead.
+1. Pull the new `compose.yml` to the server.
+2. Stop and delete the old container with this command.
 
 ```bash
-docker logs filebrowser
+docker compose up -d --remove-orphans
 ```
 
-4. Open Settings > Profile Settings.
-5. Type a new strong password. Use a password that you use nowhere else.
-6. Click Update.
-7. Open Settings > User Management.
-8. Click New. Make a normal user for daily use.
-9. Do not give this user the Administrator permission.
-10. Use the normal user for daily work. Use `admin` only to change settings.
+> **CAUTION**
+> This command also removes each other container that is no longer in `compose.yml`. Read the list that Docker shows before you continue.
 
-**Result:** The sign-in with `admin` / `admin` does not work. You can sign in with your new password.
+3. Make sure this command shows no container.
+
+```bash
+docker ps -a --filter name=filebrowser
+```
+
+4. Optional: delete the old settings with this command.
+
+```bash
+sudo rm -r appdata/filebrowser
+```
+
+> **WARNING**
+> This command deletes a folder and all its files. You cannot undo it. Make sure the path is correct before you run it.
+
+> **NOTE**
+> If you set a custom `APPDATA` in `.env`, use that folder instead of `appdata`.
+
+**Result:** No container has the name `filebrowser`. Nothing listens on port 8181.
 
 ### Task 2. Change the qBittorrent password and settings
 
@@ -203,7 +215,7 @@ docker compose up -d
 ./scripts/check-exposure.sh
 ```
 
-7. Read the output. Rack (4000), Netdata (19999), FlareSolverr (8191) and File Browser (8181) must not show on all interfaces.
+7. Read the output. Rack (4000), Netdata (19999) and FlareSolverr (8191) must not show on all interfaces.
 8. If the script shows a warning, examine the `BIND_ADDR` line and do step 5 again.
 
 **Result:** The script ends with no warning. The apps still open at `http://<SERVER-LAN-IP>:<port>` from your LAN.
@@ -466,7 +478,6 @@ Keep Tailscale on during these steps.
    - `https://homelab.<YOUR-TAILNET>:7878` (Radarr)
    - `https://homelab.<YOUR-TAILNET>:9696` (Prowlarr)
    - `https://homelab.<YOUR-TAILNET>:8080` (qBittorrent)
-   - `https://homelab.<YOUR-TAILNET>:8181` (File Browser)
 9. Open `https://homelab.<YOUR-TAILNET>:8191`. The page must not load. FlareSolverr is never available through Caddy.
 10. Open `https://homelab.<YOUR-TAILNET>:4000`. The Rack dashboard must open for you, the admin.
 11. Set Wi-Fi to on again.
@@ -700,7 +711,7 @@ docker compose up -d
 ```
 
 > **WARNING**
-> Step 10 publishes the web pages on all network interfaces. Do it only if you have a reason. Keep the passwords from Tasks 1, 2 and 3.
+> Step 10 publishes the web pages on all network interfaces. Do it only if you have a reason. Keep the passwords from Tasks 2 and 3.
 
 > **NOTE**
 > Step 8 uses the default `APPDATA=./appdata`. If you set another `APPDATA`, use that path.
