@@ -14,6 +14,7 @@
 
 	"groups": {
 		// People you invite who should only see Plex, Immich and Seerr
+		// Replace with real emails. Also change the test "src" below to one of them.
 		"group:family": ["family-member@example.com"],
 	},
 
@@ -35,6 +36,7 @@
 	// Syntax: https://tailscale.com/kb/1337/policy-syntax (see "tests")
 	"tests": [
 		{
+			// Use one email from group:family above. With no family, delete this block.
 			"src": "family-member@example.com",
 			"accept": ["tag:homelab:443", "tag:homelab:32400", "tag:homelab:2283", "tag:homelab:5055"],
 			"deny": ["tag:homelab:4000", "tag:homelab:8080", "tag:homelab:19999", "tag:homelab:9000"],
