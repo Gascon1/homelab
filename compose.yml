@@ -130,9 +130,13 @@ services:
       - VPN_TYPE=wireguard
       - SERVER_COUNTRIES=${VPN_SERVER_COUNTRIES:-Canada}
       - SERVER_CATEGORIES=P2P # also keeps out Dedicated IP / Double VPN servers
+      # Refresh the server list daily: the image's built-in Nord list goes stale (dead servers, rotated keys)
+      - UPDATER_PERIOD=24h
       # WIREGUARD_PRIVATE_KEY is read from /run/secrets/wireguard_private_key (gluetun's default)
     secrets:
       - wireguard_private_key
+    volumes:
+      - ${APPDATA}/gluetun:/gluetun # persists servers.json between restarts
     ports:
       - '${BIND_ADDR:-0.0.0.0}:8080:8080' # qBittorrent Web UI (no torrent port: Nord has no port forwarding)
     # No rack.* labels: the qBittorrent card stays on the qbittorrent container
